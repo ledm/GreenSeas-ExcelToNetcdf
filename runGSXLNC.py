@@ -51,11 +51,16 @@ for d in saveCols:
 
 count = 0
 #while count < 10:
-for i in xrange(5):
-		print count,'t,z,y,x:',time[i].value,depth[i].value,lat[i].value,lon[i].value,
-		print 'data:',
-		for d in saveCols: print header[d],data[d][i]
-		count+=1
+for i in xrange(len(lat)):
+	if count>5: break
+	a = [data[d][i].value for d in saveCols]
+	if a.count('') == len(a):continue
+	print '\n\n',count,i,':\tt,z,y,x:',time[i].value,depth[i].value,lat[i].value,lon[i].value,
+	print 'data:',
+	for d in saveCols: print header[d],data[d][i]
+	count+=1
+
+
 
 #time is a bit odd
 #t = xldate_as_tuple(datasheet.col(key['time'])[20:],a.book.datemode)
