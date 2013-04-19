@@ -1,64 +1,55 @@
 
 
 from GreenSeasXLtoNC import GreenSeasXLtoNC
-
-fn ='xlsx/ArcticandNordicData.xlsx'
+fn = 'xlsx/AtlanticData_short.xlsx'
+#fn ='xlsx/ArcticandNordicData_short.xlsx'
 a = GreenSeasXLtoNC(fn)
 
 #other stuff
 
 datasheet = a.datasheet
-locator=[]
-for h in datasheet.row(11)[0:20]:	locator.append(h.value)
-key={}
-for n,l in enumerate(locator):
-		if l.lower() in [ 'lat', 'latitude']: key['lat']=n
-		if l.lower() in [ 'lon','long', 'longitude']: key['lon']=n
-		if l in [ 'time','t', 'Date& Time (local)']: key['time']=n
-		if l in [ 'Depth of sample [m]']: key['z']=n
-		if l in [ 'Depth of Sea [m]',]: key['bathy']=n
-		if l in [ 'UTC offset',]: key['tOffset']=n
-		if l in ['Institute',]: key['Institute']=n
 
-time = datasheet.col(key['time'])[20:]
+def otherstuff():
+	locator=[]
+	for h in datasheet.row(11)[0:20]:	locator.append(h.value)
+	key={}
+	for n,l in enumerate(locator):
+			if l.lower() in [ 'lat', 'latitude']: key['lat']=n
+			if l.lower() in [ 'lon','long', 'longitude']: key['lon']=n
+			if l in [ 'time','t', 'Date& Time (local)']: key['time']=n
+			if l in [ 'Depth of sample [m]']: key['z']=n
+			if l in [ 'Depth of Sea [m]',]: key['bathy']=n
+			if l in [ 'UTC offset',]: key['tOffset']=n
+			if l in ['Institute',]: key['Institute']=n
 
-header   = [h.value for h in datasheet.row(1)]
-units    = [h.value for h in datasheet.row(2)]
-locator  = [h.value for h in datasheet.row(11)[0:20]]
-metadata = [h.value for h in datasheet.col(10)[0:12]]
+	time = datasheet.col(key['time'])[20:]
 
-datanames=[u'Temperature',]
-saveCols=[]
-for h,head in enumerate(header):
-	for d in datanames: 
-		if head.lower().find(d.lower()) > -1:
-			print 'FOUND:\t',d, 'in ',head
-			saveCols.append(h)
+	header   = [h.value for h in datasheet.row(1)]
+	units    = [h.value for h in datasheet.row(2)]
+	locator  = [h.value for h in datasheet.row(11)[0:20]]
+	metadata = [h.value for h in datasheet.col(10)[0:12]]
 
-print saveCols
-lineTitles = [header[h] for h in saveCols ]
-unitTitles = [units[h]  for h in saveCols ]
-count =0
+	datanames=[u'Temperature',]
+	saveCols=[]
+	for h,head in enumerate(header):
+		for d in datanames: 
+			if head.lower().find(d.lower()) > -1:
+				print 'FOUND:\t',d, 'in ',head
+				saveCols.append(h)
 
-lat  = datasheet.col(key['lat'])[20:]
-lon  = datasheet.col(key['lon'])[20:]
-time = datasheet.col(key['time'])[20:]
-depth= datasheet.col(key['z'])[20:]
+	print saveCols
+	lineTitles = [header[h] for h in saveCols ]
+	unitTitles = [units[h]  for h in saveCols ]
+	count =0
 
-data={}
-for d in saveCols:
-	data[d]= datasheet.col(d)[20:]
+	lat  = [h.value for h in datasheet.col(key['lat'])[20:]]
+	lon  = [h.value for h in datasheet.col(key['lon'])[20:]]
+	time = [h.value for h in datasheet.col(key['time'])[20:]]
+	depth= [h.value for h in datasheet.col(key['z'])[20:]]
 
-count = 0
-#while count < 10:
-for i in xrange(len(lat)):
-	if count>5: break
-	a = [data[d][i].value for d in saveCols]
-	if a.count('') == len(a):continue
-	print '\n\n',count,i,':\tt,z,y,x:',time[i].value,depth[i].value,lat[i].value,lon[i].value,
-	print 'data:',
-	for d in saveCols: print header[d],data[d][i]
-	count+=1
+
+
+
 
 
 

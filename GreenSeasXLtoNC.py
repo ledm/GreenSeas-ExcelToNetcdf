@@ -1,6 +1,7 @@
 from mmap import mmap,ACCESS_READ
 from xlrd import open_workbook,cellname
 from os.path import exists
+from os import makedirs
 from shelve import open as shOpen
 #import logging
 
@@ -23,7 +24,9 @@ class GreenSeasXLtoNC:
   def _run_(self):
 	self._load_()
 	self._getData_()
-
+	self._saveShelve_()
+	
+	
   def _load_(self):
 	if self.debug: print 'GreenSeasXLtoNC:\tINFO:\topening:',self.fn
 	if not exists(self.fn):
@@ -57,7 +60,7 @@ class GreenSeasXLtoNC:
 	locator  = [h.value for h in self.datasheet.row(11)[0:20]]
 	metadata = [h.value for h in self.datasheet.col(10)[0:12]]
 
-	print 'locators:',locator
+	print 'GreenSeasXLtoNC:\tInfo:\tlocators:',locator
 	
 	key ={}
 	for n,l in enumerate(locator):
@@ -70,43 +73,51 @@ class GreenSeasXLtoNC:
 		if l in ['Institute',]: key['Institute']=n
 
 	# create location t,z,y,x data
-	lat  = self.datasheet.col(key['lat'])[20:]
-	lon  = self.datasheet.col(key['lon'])[20:]
-	time = self.datasheet.col(key['time'])[20:]
-	depth= self.datasheet.col(key['z'])[20:]
-	
+	lat  = [h.value for h in self.datasheet.col(key['lat'])[20:]]
+	lon  = [h.value for h in self.datasheet.col(key['lon'])[20:]]
+	time = [h.value for h in self.datasheet.col(key['time'])[20:]]
+	depth= [h.value for h in self.datasheet.col(key['z'])[20:]]
 	
 	#which columns are being output to netcdf?
 	saveCols=[]
 	for h,head in enumerate(header):
 		for d in self.datanames: 
 			if head.lower().find(d.lower()) > -1:
-				print 'FOUND:\t',d, 'in ',head
+				print 'GreenSeasXLtoNC:\tInfo:\tFOUND:\t',d, 'in ',head
 				saveCols.append(h)
-	print saveCols
+	print 'GreenSeasXLtoNC:\tInfo:\tSaving data from columns:',saveCols
 	
 	# what is the meta data for those columns:
-	lineTitles = [header[h] for h in saveCols ]
-	unitTitles = [units[h]  for h in saveCols ]
+	lineTitles = {h:header[h] for h in saveCols }
+	unitTitles = {h:units[h]  for h in saveCols }
 	count =0
 
 	#create data dict.
 	data={}
-	for d in saveCols: data[d]= self.datasheet.col(d)[20:]
+	for d in saveCols:
+		data[d]= [h.value for h in self.datasheet.col(d)[20:]]
 
-	datacounts = {}
-	for h in saveCols: datacounts[h] = 0
+
+	# count number of entries in each column:
+	datacounts = {h: 0 for h in saveCols}
 	for i in xrange(len(lat)):
-		#'if count>5: break
-		a = [data[d][i].value for d in saveCols]
+		a = [data[d][i] for d in saveCols]
 		if a.count('') == len(a):continue
 		#print '\n\n',count,i,':\tt,z,y,x:',time[i].value,depth[i].value,lat[i].value,lon[i].value,
 		#print 'data:',
 		for d in saveCols: 
-			if data[d][i].value: datacounts[d]+=1
+			if data[d][i]:
+			 	datacounts[d]+=1
 			#print header[d],data[d][i]
 		count+=1
-	print datacounts
+	print 'GreenSeasXLtoNC:\tInfo:\tNumber of entries in each datacolumn:', datacounts
+	
+	emptyColummns=[]
+	for h in sorted(saveCols):
+		if datacounts[h] == 0:
+			print 'GreenSeasXLtoNC:\tInfo:\tNo data for coumn ',h,lineTitles[h],'[',unitTitles[h],']'
+			emptyColummns.append(h)
+			
 
 	self.data = data
 	self.lineTitles = lineTitles
@@ -116,9 +127,12 @@ class GreenSeasXLtoNC:
 	self.time = time
 	self.depth = depth
 
+
+
+  def _saveShelve_(self):
 	print 'Saving output Shelve'
 	s = shOpen('outShelve.sh')
-	#s['data'] = self.data
+	s['data'] = self.data
 	s['lineTitles'] = self.lineTitles
 	s['unitTitles'] = self.unitTitles
 	s['lat'] = self.lat
@@ -132,7 +146,33 @@ class GreenSeasXLtoNC:
 	#next: 
 		# start implementing the netcdf output.
 
-		
+	
+
+
+
+#--------------------------------------------------
+# folder, lastWord
+#--------------------------------------------------
+def folder(name):
+	if name[-1] != '/':
+		name = name+'/'
+	if exists(name) is False:
+		makedirs(name)
+		print 'makedirs ', name
+	return name
+	
+def lastWord(a, separator='/',debug=False):
+	#returns the final word of a string.
+	while a[-1] == separator: a = a[:-1]
+	ncount, count = 0,1
+	while ncount != count:
+		ncount = count
+		count = a[count:].find('/')+1+count
+		#if ncount == count : break
+	if debug: print 'final word:', a[count:]
+	return a[count:]
+	
+	
 
 
 
