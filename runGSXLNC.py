@@ -1,9 +1,15 @@
-
-
 from GreenSeasXLtoNC import GreenSeasXLtoNC
-fn = 'xlsx/AtlanticData_short.xlsx'
+
 #fn ='xlsx/ArcticandNordicData_short.xlsx'
-a = GreenSeasXLtoNC(fn)
+fni = 'xlsx/AtlanticData_short.xlsx'
+fno = 'tmp.nc'
+
+
+a = GreenSeasXLtoNC(fni,fno, saveShelve=False,saveNC=False)
+
+
+
+
 
 #other stuff
 
