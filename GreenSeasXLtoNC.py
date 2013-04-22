@@ -14,7 +14,6 @@ from dateutil.parser import parse
 # Things to do:
 	#correct strings:
 	#	not Really feasible unless you make it a Varialbe Length netcdf, which is a bad idea.
-	# test beyond temperature
 	#include data quality.
 	#better logging
 	
