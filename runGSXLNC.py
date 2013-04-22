@@ -1,13 +1,12 @@
 from GreenSeasXLtoNC import GreenSeasXLtoNC
 
+
+
+
 #fn ='xlsx/ArcticandNordicData_short.xlsx'
-fni = 'xlsx/AtlanticData_short.xlsx'
-fno = 'tmp.nc'
+fni = 'xlsx/AtlanticData.xlsx'
+fno = 'AtlanticData_temp_chl.nc'
 
+a = GreenSeasXLtoNC(fni,fno,datanames=['Temperature','Chlorophyll',], saveShelve=False,saveNC=True)
 
-a = GreenSeasXLtoNC(fni,fno, saveShelve=False,saveNC=True)
-
-#other stuff
-
-datasheet = a.datasheet
 

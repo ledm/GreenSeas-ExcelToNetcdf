@@ -3,28 +3,27 @@ from xlrd import open_workbook,cellname,empty_cell
 from os.path import exists
 from os import makedirs
 from shelve import open as shOpen
-try:from netCDF4 import Dataset,default_fillvals
-except: from netCDF4 import Dataset, _default_fillvals
+try:from netCDF4 import Dataset,default_fillvals,date2num
+except: from netCDF4 import Dataset, _default_fillvals,date2num
 from datetime import date,datetime
 from getpass import getuser
 from numpy import array, float64, int64,int32
 from numpy.ma import array as marray, masked_where
+from dateutil.parser import parse
 
 # Things to do:
-	#correct logging
-	#sort out date/time
-	#extend beyond temperature
-	#include more attributes.
+	#correct strings:
+	#	not Really feasible unless you make it a Varialbe Length netcdf, which is a bad idea.
+	# test beyond temperature
 	#include data quality.
-	#clearer comments.
-
+	#better logging
+	
 
 class GreenSeasXLtoNC:
-  def __init__(self, fni, fno, debug=True,saveShelve=False,saveNC=True):
+  def __init__(self, fni, fno,datanames=[u'Temperature',], saveShelve=False,saveNC=True):
 	self.fni = fni
 	self.fno = fno
-	self.debug=debug
-	self.datanames=[u'Temperature',]
+	self.datanames=datanames
 	self.saveShelve = saveShelve
 	self.saveNC = saveNC	
 	self._run_()
@@ -41,7 +40,7 @@ class GreenSeasXLtoNC:
 		self._saveNC_()
 	
   def _load_(self):
-	if self.debug: print 'GreenSeasXLtoNC:\tINFO:\topening:',self.fni
+	print 'GreenSeasXLtoNC:\tINFO:\topening:',self.fni
 	if not exists(self.fni):
 		print 'GreenSeasXLtoNC:\tERROR:\t', self.fni, 'does not exist'
 		return
@@ -66,7 +65,6 @@ class GreenSeasXLtoNC:
 
 
   def _getData_(self):
-	
 	#loading file metadata
 	header   = [h.value for h in self.datasheet.row(1)]
 	units    = [h.value for h in self.datasheet.row(2)]
@@ -108,28 +106,22 @@ class GreenSeasXLtoNC:
 	data={}
 	for d in saveCols:
 		data[d]= [h.value for h in self.datasheet.col(d)[20:]]
-		
-		#if d<20: data[d] =  masked_where(data[d]=='', data[d]) # this doesn't work elsewhere, as sets all to strings, when one string is present, even if its empty.
-		#else:
 		arr = []
 		isaString = self._isaString_(lineTitles[d])
 		for a in data[d][:]:
-			if isaString:
-				if a == empty_cell:arr.append(default_fillvals['S1'])
-				else: arr.append(str(a))
+		    if isaString:
+			if a == empty_cell:arr.append(default_fillvals['S1'])
+			else: arr.append(str(a))
+		    else:
+			if a == empty_cell:
+			    arr.append(default_fillvals['f4'])
 			else:
-				if a == empty_cell:
-				    arr.append(default_fillvals['f4'])
-				else:
-			  	    try:   arr.append(float(a))
-			  	    except:arr.append(default_fillvals['f4'])
+			    try:   arr.append(float(a))
+			    except:arr.append(default_fillvals['f4'])
 		arr = marray(arr)
-		print len(arr), arr.dtype
 		data[d] = arr
 				
 				
-
-	
 	# count number of datapoints in each column:
 	datacounts = {d:0 for d in saveCols}
 	for d in saveCols:
@@ -147,8 +139,7 @@ class GreenSeasXLtoNC:
 			if data[d][r] in ['', None, default_fillvals['f4'],]: continue
 			rowcounts[r] += 1
 			#print r,d,data[d][r],rowcounts[r] 
-			
-	print 'GreenSeasXLtoNC:\tInfo:\tNumber of entries in each rowcounts:', rowcounts
+
 	
 	
 	# list data columns with no data
@@ -166,13 +157,17 @@ class GreenSeasXLtoNC:
 		if h in emptyColummns:continue
 		col = sorted(data[h])
 		if col[0] == col[-1]:
-			print 'GreenSeasXLtoNC:\tInfo:\tonly one "data": ',lineTitles[h],'[',unitTitles[h],']','value:', col[0]
+			print 'GreenSeasXLtoNC:\tInfo:\tonly one "data": ',lineTitles[h],'[',unitTitles[h],']','value:', col[0]		
+			if col[0] == default_fillvals['f4']:
+				'GreenSeasXLtoNC:\tInfo:\tIgnoring masked data' 
+				emptyColummns.append(h)
+				continue			
 			oneValueInColumn.append(h)
 			attributes[lineTitles[h]] = col[0]
 	print 'GreenSeasXLtoNC:\tInfo:\tColumns with only one "data":', oneValueInColumn
 	print 'GreenSeasXLtoNC:\tInfo:\tnew file attributes:', attributes	
 	
-	# Meta data for those columns:
+	# Meta data for those columns with only one value:
 	ncVarName={}
 	allNames=[]
 	for h in saveCols:
@@ -183,12 +178,24 @@ class GreenSeasXLtoNC:
 		if name in allNames:name+='_'+str(h)
 		allNames.append(name)
 		ncVarName[h] = name
+	
+	
+	# convert time data into Datetime:
+	dt=[]
+	tunit='seconds since 1900-00-00'	
+	for n,t in enumerate(time):
+		try: dt.append(date2num(parse(t),units=tunit) )
+		except:	dt.append(-1)
+	data[9] = masked_where(dt==-1,dt)
+	unitTitles[9] = tunit
+	time = data[9]
 		
 
-	# figure out data type:
+	# get data type (ie float, int, etc...):
 	# netcdf4 requries some strange names for datatypes: 
 	#	ie f8 instead of numpy.float64
 	dataTypes={}
+	dataIsAString=[]
 	for h in saveCols:
 		if h in emptyColummns:continue
 		if h in oneValueInColumn:continue
@@ -197,28 +204,25 @@ class GreenSeasXLtoNC:
 		if dataTypes[h] == float64: dataTypes[h] = 'f8'
 		elif dataTypes[h] == int32: dataTypes[h] = 'i4'
 		elif dataTypes[h] == int64: dataTypes[h] = 'i8'	
-		#elif dataTypes[h] =='|S1':
-		#	dataTypes[h] = 'f8'
-		#	#data[h] = float64(data[h])
-		else: dataTypes[h] = 'S1'
-		print dataTypes[h]
+		else:
+			dataTypes[h] = 'S1'
+			dataIsAString.append(h)
+		#print dataTypes[h]
 		
-		
-			
+
+	# save all info as public variables, so that it can be accessed if netCDF creation fails:
 	self.saveCols = saveCols
 	self.emptyColummns = emptyColummns
 	self.oneValueInColumn = oneValueInColumn
 	self.rowcounts=rowcounts
 	self.ncVarName = ncVarName
 	self.dataTypes = dataTypes
+	self.dataIsAString=dataIsAString
 	self.data = data
 	self.lineTitles = lineTitles
 	self.unitTitles = unitTitles
 	self.attributes = attributes
-	#self.lat = lat
-	#self.lon = lon
-	#self.time = time
-	#self.depth = depth
+	self.time = time
 
   def _getNCvarName_(self,locName): 
  	# users are welcome to expand this list to include other elements of the green seas database.
@@ -244,18 +248,6 @@ class GreenSeasXLtoNC:
 	return False
 
 
-	
-  #def _getDataTypes_(self,col):
-  	#scol = sorted(col)
-  	#if type(max(scol)) == type(min(scol)):
-  	#	t = type(col[0])
-  	#	
-  	#if type(col[0]) == type(col[-1]):
-	#	dataTypes[h] = 
-	#	print 'GreenSeasXLtoNC:\tInfo:\t',h, ncVarName[h], ' is type:',  dataTypes[h]
-	#else:
-	#	print 'GreenSeasXLtoNC:\tWARNING:\tTWO KINDS OF DATA IN', h, ncVarName[h], [col[0],type(col[0]) ],[col[-1], type(col[-1])]
-  	#data type must be one of ['i8', 'f4', 'u8', 'i1', 'u4', 'S1', 'i2', 'u1', 'i4', 'u2', 'f8']
 
   def _saveShelve_(self):
 	print 'Saving output Shelve'
@@ -272,7 +264,7 @@ class GreenSeasXLtoNC:
 	s.close()
 
   def _saveNC_(self):
-	if self.debug: print 'GreenSeasXLtoNC:\tINFO:\tCreating a new dataset:\t', self.fno
+	print 'GreenSeasXLtoNC:\tINFO:\tCreating a new dataset:\t', self.fno
 	nco = Dataset(self.fno,'w')	
 	nco.setncattr('CreatedDate','This netcdf was created on the '+str(date.today()) +' by '+getuser()+' using GreenSeasXLtoNC.py')
 	nco.setncattr('Original File',self.fni)	
@@ -284,30 +276,34 @@ class GreenSeasXLtoNC:
 	
 	for v in self.saveCols:
 		if v in self.emptyColummns:continue
-		if v in self.oneValueInColumn:continue		
+		if v in self.oneValueInColumn:continue
+		if v in self.dataIsAString:continue
 		print 'GreenSeasXLtoNC:\tInfo:\tCreating var:',v,self.ncVarName[v], self.dataTypes[v]
 		nco.createVariable(self.ncVarName[v], self.dataTypes[v], 'i',zlib=True,complevel=5)
 	
 	for v in self.saveCols:
 		if v in self.emptyColummns:continue
 		if v in self.oneValueInColumn:continue
+		if v in self.dataIsAString:continue		
 		print 'GreenSeasXLtoNC:\tInfo:\tAdding var long_name:',v,self.ncVarName[v], self.lineTitles[v]
 		nco.variables[self.ncVarName[v]].long_name =  self.lineTitles[v]
 		
 	for v in self.saveCols:
 		if v in self.emptyColummns:continue
 		if v in self.oneValueInColumn:continue
+		if v in self.dataIsAString:continue		
 		print 'GreenSeasXLtoNC:\tInfo:\tAdding var units:',v,self.ncVarName[v], self.unitTitles[v]	
 		nco.variables[self.ncVarName[v]].units =  self.unitTitles[v]
 		
 	for v in self.saveCols:
 		if v in self.emptyColummns:continue
 		if v in self.oneValueInColumn:continue
+		if v in self.dataIsAString:continue		
 		print 'GreenSeasXLtoNC:\tInfo:\tSaving data:',v,self.ncVarName[v]
 		arr =  []
 		for a,val in enumerate(self.data[v]):
 			if self.rowcounts[a]== 0:continue
-			arr.append(val)	
+			arr.append(val)
 		nco.variables[self.ncVarName[v]][:] = marray(arr)
 				
 	
