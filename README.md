@@ -11,16 +11,17 @@ To run this, you will also need the xlrd (excel read) package. It's available on
 You'll also need the standard python and netcdf libraries installed.
 
 
-###########################
+
 GreenSeas-ExcelToNetcdf contents:
+---------------------------------
 
 There are only three files in the repository, the main script, GreenSeasXLtoNC.py, a typical running script, runGSXLNC.py, and a README. You'll need to edit runGSXLNC.py, and change the file locations. 
 
 You'll need to edit runGSXLNC.py, and change the file locations to your own files.
 
-###########################
-GreenSeasXLtoNC.py
 
+GreenSeasXLtoNC.py
+------------------
 GreenSeasXLtoNC requires two arguments, an input excel file and an output filename.
 
 The "datanames" option is a list of column names that you want to save.
@@ -31,15 +32,15 @@ The default dataname is 'Temperature'.
 
 
 
-###########################
+
 Caveats:
+--------
+*GreenSeasXLtoNC does not support netcdf string varialbes.
 
-GreenSeasXLtoNC does not support netcdf string varialbes.
+*GreenSeasXLtoNC is not yet flexible for different excel input formats.
 
-GreenSeasXLtoNC is not yet flexible for different excel input formats.
+*GreenSeasXLtoNC does not yet include much of the GreenSeas metadata.
 
-GreenSeasXLtoNC does not yet include much of the GreenSeas metadata.
-
-GreenSeasXLtoNC is the early draft stage, so please email me (ledm@pml.ac.uk) if you see a bug, or if you need some help running it, or want to request features. 
+*GreenSeasXLtoNC is the early draft stage, so please email me (ledm@pml.ac.uk) if you see a bug, or if you need some help running it, or want to request features. 
 
 
