@@ -35,12 +35,12 @@ The default dataname is 'Temperature'.
 
 Caveats:
 --------
-*GreenSeasXLtoNC does not support netcdf string varialbes.
+* GreenSeasXLtoNC does not support netcdf string varialbes.
 
-*GreenSeasXLtoNC is not yet flexible for different excel input formats.
+* GreenSeasXLtoNC is not yet flexible for different excel input formats.
 
-*GreenSeasXLtoNC does not yet include much of the GreenSeas metadata.
+* GreenSeasXLtoNC does not yet include much of the GreenSeas metadata.
 
-*GreenSeasXLtoNC is the early draft stage, so please email me (ledm@pml.ac.uk) if you see a bug, or if you need some help running it, or want to request features. 
+* GreenSeasXLtoNC is the early draft stage, so please email me (ledm@pml.ac.uk) if you see a bug, or if you need some help running it, or want to request features. 
 
 
