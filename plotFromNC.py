@@ -5,6 +5,11 @@ from numpy.ma import masked_where,array as marray
 from datetime import datetime
 
 
+netcdf_filename = 'AtlanticData_TCSPN.nc'
+
+
+
+
 def makePlot(times,data,Title,filename):
 	print "Making: ", Title
 	fig = pyplot.figure()
@@ -22,21 +27,17 @@ def makePlot(times,data,Title,filename):
 
 
 def main():
-	fn = 'AtlanticData_TCSPN.nc'
-	print 'opening ',fn
-	nc = Dataset (fn,'r')
+
+	print 'opening ',netcdf_filename
+	nc = Dataset (netcdf_filename,'r')
 
 	time = num2date( nc.variables['Time'][:], nc.variables['Time'].units)
 	
 	for name in nc.variables.keys():
-		if name == 'Time':continue
-		
 		data = nc.variables[name][:]
-		
 		tle = nc.variables[name].long_name
 		imagefn = folder('images')+name+'.png'
-		makePlot(time,data,tle ,imagefn)
-		
+		makePlot(time,data,tle ,imagefn)	
 	nc.close()
 	
 

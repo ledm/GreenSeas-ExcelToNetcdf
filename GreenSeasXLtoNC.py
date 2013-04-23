@@ -12,10 +12,14 @@ from numpy.ma import array as marray, masked_where
 from dateutil.parser import parse
 
 # Things to do:
-	#correct strings:
+	# correct strings:
 	#	not Really feasible unless you make it a Varialbe Length netcdf, which is a bad idea.
-	#include data quality.
-	#better logging
+	
+	# include data quality flags.
+	
+	# better logging
+
+	# implement command line control
 	
 
 class GreenSeasXLtoNC:
@@ -68,9 +72,10 @@ class GreenSeasXLtoNC:
 	header   = [h.value for h in self.datasheet.row(1)]
 	units    = [h.value for h in self.datasheet.row(2)]
 	locator  = [h.value for h in self.datasheet.row(11)[0:20]]
-	metadata = [h.value for h in self.datasheet.col(10)[0:12]]
+	metadataTitles = [h.value for h in self.datasheet.col(12)[0:12]]
 	time     = [h.value for h in self.datasheet.col(9)[20:]]
-	
+	attributes={}
+		
 	print 'GreenSeasXLtoNC:\tInfo:\tlocators:',locator
 
 	
@@ -86,12 +91,23 @@ class GreenSeasXLtoNC:
 		lineTitles[l]=loc
 		unitTitles[l]=''
 		if loc.find('[') > 0:
-		  unitTitles[l]=loc[loc.find('['):]
-		  
+		  unitTitles[l]=loc[loc.find('['):].replace(']','')
+	
+	attributes['Note'] = header[5]
+	header[5]=''
+	
+	# flag for saving all columns:
+	if 'all' in self.datanames:
+		for head in header[20:]:
+			if head == '': continue	
+			self.datanames.append(head)
+	
 	# add data columns titles to output to netcdf.
 	for h,head in enumerate(header):
 		if head == '':continue	
-		for d in self.datanames: 
+		if h in saveCols.keys(): continue
+		for d in self.datanames:
+			if h in saveCols.keys(): continue
 			if head.lower().find(d.lower()) > -1:
 				print 'GreenSeasXLtoNC:\tInfo:\tFOUND:\t',h,'\t',d, 'in ',head
 				saveCols[h] = True
@@ -123,6 +139,7 @@ class GreenSeasXLtoNC:
 				
 				
 	# count number of datapoints in each column:
+	print 'GreenSeasXLtoNC:\tInfo:\tCount number of datapoints in each column...' # can be slow
 	datacounts = {d:0 for d in saveCols}
 	for d in saveCols:
 		for i in data[d][:]:
@@ -131,6 +148,7 @@ class GreenSeasXLtoNC:
 	
 	
 	# count number of datapoints in each row:
+	print 'GreenSeasXLtoNC:\tInfo:\tCount number of datapoints in each row...' # can be slow	
 	rowcounts = {d:0 for d in xrange(len(time))}
 	for r in sorted(rowcounts.keys()):
 		for d in saveCols:
@@ -152,7 +170,7 @@ class GreenSeasXLtoNC:
 		
 	# list data columns with only one value	
 	oneValueInColumn=[]
-	attributes={}
+
 	for h in saveCols:
 		if h in emptyColummns:continue
 		col = sorted(data[h])
@@ -164,7 +182,7 @@ class GreenSeasXLtoNC:
 				continue			
 			oneValueInColumn.append(h)
 			attributes[lineTitles[h]] = col[0]
-	print 'GreenSeasXLtoNC:\tInfo:\tColumns with only one "data":', oneValueInColumn
+	print 'GreenSeasXLtoNC:\tInfo:\tColumns with only one non-masked "data":', oneValueInColumn
 	print 'GreenSeasXLtoNC:\tInfo:\tnew file attributes:', attributes	
 	
 	# Meta data for those columns with only one value:
@@ -212,7 +230,20 @@ class GreenSeasXLtoNC:
 		else:
 			dataTypes[h] = 'S1'
 			dataIsAString.append(h)
-		#print dataTypes[h]
+
+	#create metadata.
+	metadata = {}
+	for h in saveCols:
+		if h in emptyColummns:continue
+		if h in oneValueInColumn:continue
+		if h in dataIsAString:continue
+		colmeta = [a.value for a in self.datasheet.col(h)[0:12]]
+		md='  '
+		for mdt,mdc in zip(metadataTitles,colmeta ):
+			if mdc in ['', None]:continue
+			md +=str(mdt)+':\t'+str(mdc)+'\n  '
+		metadata[h] = md
+	
 		
 
 	# save all info as public variables, so that it can be accessed if netCDF creation fails:
@@ -224,6 +255,7 @@ class GreenSeasXLtoNC:
 	self.dataTypes = dataTypes
 	self.dataIsAString=dataIsAString
 	self.timeIsBad = timeIsBad
+	self.metadata=metadata
 	self.data = data
 	self.lineTitles = lineTitles
 	self.unitTitles = unitTitles
@@ -244,16 +276,28 @@ class GreenSeasXLtoNC:
 		'Originator / PI': 'originator', 
 		'Research Group(s) if relevant':'researchGroup',}
 	if locName in exceptions.keys(): return exceptions[locName]
-	else:
-	  a = locName.replace(' ','')
-	  a.replace('Total', 'T')
-	  a.replace('Temperature' , 'Temp')
-	  a.replace('Chlorophyll', 'Chl')
-	  a.replace('Salinity', 'Sal')	 
-	  a.replace('MixedLayerDepth', 'MLD')
-	  a.replace('oncentration', 'onc')
-	  a.replace('Dissolved', 'Diss')
-	  return a
+
+	#need to remove a lot of the dodgy characters.
+	a = str(locName.replace(' ',''))
+	a = a.replace('Total', 'T')
+	a = a.replace('Temperature' , 'Temp')
+	a = a.replace('Chlorophyll', 'Chl')
+	a = a.replace('Salinity', 'Sal')	 
+	a = a.replace('MixedLayerDepth', 'MLD')
+	a = a.replace('oncentrationof', 'onc')
+	a = a.replace('oncentration', 'onc')	
+	a = a.replace('Dissolved', 'Diss')
+	a = a.replace('ofwaterbody', '')
+	a = a.replace('+', '')
+	a = a.replace('-', '')						
+	a = a.replace('>', 'GT')		
+	a = a.replace('<', 'LT')
+	a = a.replace('/', '')
+	a = a.replace('\\', '')
+	a = a.replace('[', '_').replace(']', '')
+	a = a.replace('%', 'pcent')	
+	a = a.replace(':','').replace('.','')
+	return a
 	  
 	  
   def _isaString_(self,locName): 
@@ -316,6 +360,13 @@ class GreenSeasXLtoNC:
 		print 'GreenSeasXLtoNC:\tInfo:\tAdding var units:',v,self.ncVarName[v], self.unitTitles[v]	
 		nco.variables[self.ncVarName[v]].units =  self.unitTitles[v].replace('[','').replace(']','')
 		
+	for v in self.saveCols:
+		if v in self.emptyColummns:continue
+		if v in self.oneValueInColumn:continue
+		if v in self.dataIsAString:continue		
+		print 'GreenSeasXLtoNC:\tInfo:\tAdding meta data:',v,self.ncVarName[v], self.metadata[v]	
+		nco.variables[self.ncVarName[v]].metadata =  self.metadata[v]
+	
 	for v in self.saveCols:
 		if v in self.emptyColummns:continue
 		if v in self.oneValueInColumn:continue
