@@ -75,13 +75,14 @@ class GreenSeasXLtoNC:
 
 	
 	# add location to netcdf
-	saveCols=[]
+	saveCols={}
 	lineTitles={}
 	unitTitles={}
 	for l,loc in enumerate(locator):	
 		if loc in ['', None]:continue
 		print 'GreenSeasXLtoNC:\tInfo:\tFOUND:\t',l,'\t',loc, 'in locator'
-		saveCols.append(l)
+		#if l not in saveCols:
+		saveCols[l] = True
 		lineTitles[l]=loc
 		unitTitles[l]=''
 		if loc.find('[') > 0:
@@ -93,10 +94,10 @@ class GreenSeasXLtoNC:
 		for d in self.datanames: 
 			if head.lower().find(d.lower()) > -1:
 				print 'GreenSeasXLtoNC:\tInfo:\tFOUND:\t',h,'\t',d, 'in ',head
-				saveCols.append(h)
+				saveCols[h] = True
 				lineTitles[h] = header[h]
 				unitTitles[h] = units[h]				
-	saveCols = sorted(saveCols)	
+	saveCols = sorted(saveCols.keys())	
 	
 	print 'GreenSeasXLtoNC:\tInfo:\tSaving data from columns:',saveCols
 		
@@ -181,10 +182,15 @@ class GreenSeasXLtoNC:
 	
 	# convert time data into Datetime:
 	dt=[]
+	timeIsBad = []#{d:0 for d in saveCols}
 	tunit='seconds since 1900-00-00'	
 	for n,t in enumerate(time):
-		try: dt.append(date2num(parse(t),units=tunit) )
-		except:	dt.append(-1)
+		try: 
+		    dt.append(date2num(parse(t),units=tunit) )
+		    timeIsBad.append(False)	
+		except:
+		    dt.append(-1)
+		    timeIsBad.append(True)		    
 	data[9] = masked_where(dt==-1,dt)
 	unitTitles[9] = tunit
 	time = data[9]
@@ -217,6 +223,7 @@ class GreenSeasXLtoNC:
 	self.ncVarName = ncVarName
 	self.dataTypes = dataTypes
 	self.dataIsAString=dataIsAString
+	self.timeIsBad = timeIsBad
 	self.data = data
 	self.lineTitles = lineTitles
 	self.unitTitles = unitTitles
@@ -236,10 +243,19 @@ class GreenSeasXLtoNC:
 		'GS Originator / PI': 'gsOriginator', 
 		'Originator / PI': 'originator', 
 		'Research Group(s) if relevant':'researchGroup',}
-	if locName in exceptions: return exceptions[locName]
-	else: return locName.replace(' ','')
-		
-	
+	if locName in exceptions.keys(): return exceptions[locName]
+	else:
+	  a = locName.replace(' ','')
+	  a.replace('Total', 'T')
+	  a.replace('Temperature' , 'Temp')
+	  a.replace('Chlorophyll', 'Chl')
+	  a.replace('Salinity', 'Sal')	 
+	  a.replace('MixedLayerDepth', 'MLD')
+	  a.replace('oncentration', 'onc')
+	  a.replace('Dissolved', 'Diss')
+	  return a
+	  
+	  
   def _isaString_(self,locName): 
 	if locName in [ 'Date& Time (local)', 'Explanation/ reference of any conversion factors or aggregation used (if relevant)',
 			'measure type1', 'measure type2', u'duplicated (1=Y, 0=N)', u'GS Originator / PI', u'Originator / PI',
@@ -253,13 +269,19 @@ class GreenSeasXLtoNC:
 	if exists(self.outShelveName):
 		print 'GreenSeasXLtoNC:\tWARNING:\tOverwriting previous shelve',self.outShelveName
 	s = shOpen(self.outShelveName)
+	s['time'] = self.time
+	s['saveCols'] = self.saveCols
+	s['emptyColummns'] = self.emptyColummns
+	s['oneValueInColumn'] = self.oneValueInColumn
+	s['rowcounts'] =self.rowcounts
+	s['ncVarName'] = self.ncVarName
+	s['dataTypes'] = self.dataTypes
+	s['dataIsAString'] = self.dataIsAString
+	s['timeIsBad'] = self.timeIsBad
 	s['data'] = self.data
 	s['lineTitles'] = self.lineTitles
 	s['unitTitles'] = self.unitTitles
-	s['lat'] = self.lat
-	s['lon'] = self.lon
-	s['time'] = self.time
-	s['depth'] = self.depth
+	s['attributes'] = self.attributes	
 	s.close()
 
   def _saveNC_(self):
@@ -292,7 +314,7 @@ class GreenSeasXLtoNC:
 		if v in self.oneValueInColumn:continue
 		if v in self.dataIsAString:continue		
 		print 'GreenSeasXLtoNC:\tInfo:\tAdding var units:',v,self.ncVarName[v], self.unitTitles[v]	
-		nco.variables[self.ncVarName[v]].units =  self.unitTitles[v]
+		nco.variables[self.ncVarName[v]].units =  self.unitTitles[v].replace('[','').replace(']','')
 		
 	for v in self.saveCols:
 		if v in self.emptyColummns:continue
@@ -302,6 +324,7 @@ class GreenSeasXLtoNC:
 		arr =  []
 		for a,val in enumerate(self.data[v]):
 			if self.rowcounts[a]== 0:continue
+			if self.timeIsBad[a]: continue
 			arr.append(val)
 		nco.variables[self.ncVarName[v]][:] = marray(arr)
 				

@@ -7,7 +7,7 @@ from GreenSeasXLtoNC import GreenSeasXLtoNC
 fni = 'xlsx/AtlanticData.xlsx'
 
 #fno is the output netcdf file you are going to create
-fno = 'AtlanticData_temp_chl.nc'
+fno = 'AtlanticData_TCSPN.nc'
 
 #datanames are the column names that you want to save.
 #	This performs a search through all column headers, so 'Temperature' will save for all non-empty columns with Temperature in the header.
@@ -18,7 +18,8 @@ fno = 'AtlanticData_temp_chl.nc'
 shv=True
 snc=True
 
-dns= ['Temperature','Chlorophyll',]
+dns= ['Temperature','Chlorophyll','Salinity','Chl-a','Phosphate', 'Nitrate']
+quickdns=['Temperature']
 a = GreenSeasXLtoNC(fni,fno,datanames=dns, saveShelve=shv,saveNC=snc)
 
 
