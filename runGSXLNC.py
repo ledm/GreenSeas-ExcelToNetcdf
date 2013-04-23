@@ -15,8 +15,8 @@ fno = 'AtlanticData.nc'
 
 
 ## a minimal selection for fast testing:
-# dns=['Temperature']
-# fno='AtlanticData_temp.nc'
+dns=['Temperature']
+fno='AtlanticData_temp.nc'
 
 ## a typical selection of data to convert to netcdf:
 #dns= ['Temperature','Chlorophyll','Salinity','Chl-a','Phosphate', 'Nitrate']

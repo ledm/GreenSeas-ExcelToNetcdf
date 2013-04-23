@@ -1,5 +1,5 @@
 from mmap import mmap,ACCESS_READ
-from xlrd import open_workbook,cellname,empty_cell
+from xlrd import open_workbook,cellname,empty_cell,colname
 from os.path import exists
 from os import makedirs
 from shelve import open as shOpen
@@ -20,6 +20,10 @@ from dateutil.parser import parse
 	# better logging
 
 	# implement command line control
+	
+	# implement link back to columns and rows of excel.
+	
+	# why are so many values fill 
 	
 
 class GreenSeasXLtoNC:
@@ -75,10 +79,11 @@ class GreenSeasXLtoNC:
 	metadataTitles = [h.value for h in self.datasheet.col(12)[0:12]]
 	time     = [h.value for h in self.datasheet.col(9)[20:]]
 	attributes={}
-		
+	self.index = xrange(20, 20+len(time))
 	print 'GreenSeasXLtoNC:\tInfo:\tlocators:',locator
 
-	
+	colnames = {h: colname(h) for h,head in enumerate(self.datasheet.row(1))}
+	print colnames[5], colnames[100]
 	# add location to netcdf
 	saveCols={}
 	lineTitles={}
@@ -191,9 +196,10 @@ class GreenSeasXLtoNC:
 	for h in saveCols:
 		if h in emptyColummns:continue
 		if h in oneValueInColumn:continue
+		#ncVarName[h] = self._getNCvarName_(lineTitles[h])+'_'+colnames[h]
 		name = self._getNCvarName_(lineTitles[h])
 		#ensure netcdf variable keys are unique:
-		if name in allNames:name+='_'+str(h)
+		if name in allNames:name+='_'+colnames[h]
 		allNames.append(name)
 		ncVarName[h] = name
 	
@@ -256,6 +262,7 @@ class GreenSeasXLtoNC:
 	self.dataIsAString=dataIsAString
 	self.timeIsBad = timeIsBad
 	self.metadata=metadata
+	self.colnames = colnames
 	self.data = data
 	self.lineTitles = lineTitles
 	self.unitTitles = unitTitles
@@ -339,6 +346,7 @@ class GreenSeasXLtoNC:
 	
 	nco.createDimension('i', None)
 	
+	nco.createVariable('index', 'i4', 'i',zlib=True,complevel=5)
 	for v in self.saveCols:
 		if v in self.emptyColummns:continue
 		if v in self.oneValueInColumn:continue
@@ -346,26 +354,44 @@ class GreenSeasXLtoNC:
 		print 'GreenSeasXLtoNC:\tInfo:\tCreating var:',v,self.ncVarName[v], self.dataTypes[v]
 		nco.createVariable(self.ncVarName[v], self.dataTypes[v], 'i',zlib=True,complevel=5)
 	
+	nco.variables['index'].long_name =  'Excel Row index'
 	for v in self.saveCols:
 		if v in self.emptyColummns:continue
 		if v in self.oneValueInColumn:continue
 		if v in self.dataIsAString:continue		
 		print 'GreenSeasXLtoNC:\tInfo:\tAdding var long_name:',v,self.ncVarName[v], self.lineTitles[v]
 		nco.variables[self.ncVarName[v]].long_name =  self.lineTitles[v]
-		
+
+	nco.variables['index'].units =  ''		
 	for v in self.saveCols:
 		if v in self.emptyColummns:continue
 		if v in self.oneValueInColumn:continue
 		if v in self.dataIsAString:continue		
 		print 'GreenSeasXLtoNC:\tInfo:\tAdding var units:',v,self.ncVarName[v], self.unitTitles[v]	
 		nco.variables[self.ncVarName[v]].units =  self.unitTitles[v].replace('[','').replace(']','')
-		
+
+	nco.variables['index'].metadata =  ''
 	for v in self.saveCols:
 		if v in self.emptyColummns:continue
 		if v in self.oneValueInColumn:continue
 		if v in self.dataIsAString:continue		
-		print 'GreenSeasXLtoNC:\tInfo:\tAdding meta data:',v,self.ncVarName[v], self.metadata[v]	
+		print 'GreenSeasXLtoNC:\tInfo:\tAdding meta data:',v, self.metadata[v]	
 		nco.variables[self.ncVarName[v]].metadata =  self.metadata[v]
+
+	nco.variables['index'].xl_column =  '-1'	
+	for v in self.saveCols:
+		if v in self.emptyColummns:continue
+		if v in self.oneValueInColumn:continue
+		if v in self.dataIsAString:continue	
+		print 'GreenSeasXLtoNC:\tInfo:\tAdding excell column name:',v,self.ncVarName[v],':', self.colnames[v]
+		nco.variables[self.ncVarName[v]].xl_column =  self.colnames[v]
+	
+	arr=[]
+	for a,val in enumerate(self.index):
+	    if self.rowcounts[a]== 0:continue
+	    if self.timeIsBad[a]: continue
+	    arr.append(val)
+	nco.variables['index'][:] = marray(arr)
 	
 	for v in self.saveCols:
 		if v in self.emptyColummns:continue

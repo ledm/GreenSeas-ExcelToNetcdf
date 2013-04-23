@@ -5,7 +5,7 @@ from numpy.ma import masked_where,array as marray
 from datetime import datetime
 
 
-netcdf_filename = 'AtlanticData_TCSPN.nc'
+netcdf_filename = 'AtlanticData_temp.nc'
 
 
 
@@ -35,8 +35,9 @@ def main():
 	
 	for name in nc.variables.keys():
 		data = nc.variables[name][:]
-		tle = nc.variables[name].long_name
-		imagefn = folder('images')+name+'.png'
+		tle = nc.variables[name].long_name + ' ('+nc.variables[name].xl_column +'), [' +nc.variables[name].units +']'
+		imagefn = folder('images/'+netcdf_filename)+name+'.png'
+		
 		makePlot(time,data,tle ,imagefn)	
 	nc.close()
 	
