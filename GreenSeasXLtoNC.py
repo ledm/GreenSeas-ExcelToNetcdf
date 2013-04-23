@@ -37,7 +37,7 @@ class GreenSeasXLtoNC:
 
 
   def _run_(self):
-	self._load_()
+	if not self._load_():return
 	self._getData_()
 	if self.saveShelve:
 		if self.fno[-7:]!='.shelve':self.outShelveName =self.fno+'.shelve'
@@ -50,7 +50,7 @@ class GreenSeasXLtoNC:
 	print 'GreenSeasXLtoNC:\tINFO:\topening:',self.fni
 	if not exists(self.fni):
 		print 'GreenSeasXLtoNC:\tERROR:\t', self.fni, 'does not exist'
-		return
+		return False
 	
 	#load excel file
 	self.book = open_workbook(self.fni,on_demand=True )
@@ -62,12 +62,13 @@ class GreenSeasXLtoNC:
 
 	if 'data' not in self.book.sheet_names():
 		print 'GreenSeasXLtoNC:\tERROR:\t', self.fni, 'does not contain a sheet called "data".'
-		return
+		print 'GreenSeasXLtoNC:\tERROR:\tAre you sure that', self.fni, ' is a Greenseas excel file?'		
+		return False
 	print 'Getting "data" sheet'
 	self.datasheet = self.book.sheet_by_name('data')
 
 	print self.datasheet.name, 'sheet size is ',self.datasheet.nrows,' x ', self.datasheet.ncols
-	return
+	return True
 
 
 
@@ -79,11 +80,13 @@ class GreenSeasXLtoNC:
 	metadataTitles = [h.value for h in self.datasheet.col(12)[0:12]]
 	time     = [h.value for h in self.datasheet.col(9)[20:]]
 	attributes={}
-	self.index = xrange(20, 20+len(time))
-	print 'GreenSeasXLtoNC:\tInfo:\tlocators:',locator
-
+	
+	#create excel coordinates for netcdf.
+	#index begins at 21 because excel rows start at 1.
+	self.index = xrange(21, 21+len(time))
 	colnames = {h: colname(h) for h,head in enumerate(self.datasheet.row(1))}
-	print colnames[5], colnames[100]
+
+
 	# add location to netcdf
 	saveCols={}
 	lineTitles={}

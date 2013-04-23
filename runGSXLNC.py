@@ -5,8 +5,9 @@ from GreenSeasXLtoNC import GreenSeasXLtoNC
 ##fni is path to the input excel spreadsheet 
 fni = 'xlsx/AtlanticData.xlsx'
 
+
 ##fno is the output netcdf file you are going to create
-fno = 'AtlanticData.nc'
+#fno = 'AtlanticData.nc'
 
 ##datanames are the column names that you want to save.
 ##	This performs a search through all column headers, so 'Temperature' will save for all non-empty columns with Temperature in the header.
