@@ -1,5 +1,8 @@
 from mmap import mmap,ACCESS_READ
-from xlrd import open_workbook,cellname,empty_cell,colname
+from xlrd import open_workbook,cellname,colname
+from xlrd import XL_CELL_ERROR as xl_cellerror
+from xlrd import XL_CELL_EMPTY as xl_cellempty
+from xlrd import XL_CELL_BLANK as xl_cellblank
 from os.path import exists
 from os import makedirs
 from shelve import open as shOpen
@@ -127,20 +130,41 @@ class GreenSeasXLtoNC:
 		
 
 	#create data dictionary
+	#data={}
+	#for d in saveCols:
+	#	data[d]= [h.value for h in self.datasheet.col(d)[20:]]
+	#	arr = []
+	#	isaString = self._isaString_(lineTitles[d])
+	#	for a in data[d][:]:
+	#	    if isaString:
+	#		if a == empty_cell:arr.append(default_fillvals['S1'])
+	#		else: arr.append(str(a))
+	#	    else:
+	#		if a == empty_cell:
+	#		    arr.append(default_fillvals['f4'])
+	#		else:
+	#		    try:   arr.append(float(a))
+	#		    except:arr.append(default_fillvals['f4'])
+	#	arr = marray(arr)
+	#	data[d] = arr
+		
+	#create data dictionary
 	data={}
+	bad_cells = [xl_cellerror,xl_cellempty,xl_cellblank]
 	for d in saveCols:
-		data[d]= [h.value for h in self.datasheet.col(d)[20:]]
+		data[d]= self.datasheet.col(d)[20:]
 		arr = []
 		isaString = self._isaString_(lineTitles[d])
 		for a in data[d][:]:
 		    if isaString:
-			if a == empty_cell:arr.append(default_fillvals['S1'])
-			else: arr.append(str(a))
+			if a.ctype in bad_cells:
+				arr.append(default_fillvals['S1'])
+			else: arr.append(str(a.value))
 		    else:
-			if a == empty_cell:
+			if a.ctype in bad_cells:
 			    arr.append(default_fillvals['f4'])
 			else:
-			    try:   arr.append(float(a))
+			    try:   arr.append(float(a.value))
 			    except:arr.append(default_fillvals['f4'])
 		arr = marray(arr)
 		data[d] = arr
