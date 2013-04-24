@@ -54,4 +54,7 @@ Caveats:
 
 * GreenSeasXLtoNC is the early draft stage, so please email me (ledm@pml.ac.uk) if you see a bug, or if you need some help running it, or want to request features. 
 
+* Some python packages are OS-dependent, and I've only tested this in Linux. 
+
+
 

@@ -80,10 +80,25 @@ class GreenSeasXLtoNC:
 	header   = [h.value for h in self.datasheet.row(1)]
 	units    = [h.value for h in self.datasheet.row(2)]
 	locator  = [h.value for h in self.datasheet.row(11)[0:20]]
-	metadataTitles = [h.value for h in self.datasheet.col(12)[0:12]]
-	time     = [h.value for h in self.datasheet.col(9)[20:]]
-	attributes={}
 	
+	
+	
+	
+	ckey={}
+	for n,l in enumerate(locator):
+	    if l.lower() in [ 'lat', 'latitude']: ckey['lat']=n
+	    if l.lower() in [ 'lon','long', 'longitude']: ckey['lon']=n
+	    if l in [ 'time','t', 'Date& Time (local)']: ckey['time']=n
+	    if l in [ 'Depth of sample [m]']: ckey['z']=n
+	    if l in [ 'Depth of Sea [m]',]: ckey['bathy']=n
+	    if l in [ 'UTC offset',]: ckey['tOffset']=n
+	    if l in ['Institute',]: ckey['Institute']=n
+	    
+	metadataTitles = [h.value for h in self.datasheet.col(ckey['tOffset']+1)[0:12]]
+	time     = [h.value for h in self.datasheet.col(ckey['time'])[20:]]
+	attributes={}
+		    
+	    
 	#create excel coordinates for netcdf.
 	#index begins at 21 because excel rows start at 1.
 	self.index = xrange(21, 21+len(time))
@@ -126,28 +141,21 @@ class GreenSeasXLtoNC:
 				unitTitles[h] = units[h]				
 	saveCols = sorted(saveCols.keys())	
 	
-	print 'GreenSeasXLtoNC:\tInfo:\tSaving data from columns:',saveCols
-		
 
-	#create data dictionary
-	#data={}
-	#for d in saveCols:
-	#	data[d]= [h.value for h in self.datasheet.col(d)[20:]]
-	#	arr = []
-	#	isaString = self._isaString_(lineTitles[d])
-	#	for a in data[d][:]:
-	#	    if isaString:
-	#		if a == empty_cell:arr.append(default_fillvals['S1'])
-	#		else: arr.append(str(a))
-	#	    else:
-	#		if a == empty_cell:
-	#		    arr.append(default_fillvals['f4'])
-	#		else:
-	#		    try:   arr.append(float(a))
-	#		    except:arr.append(default_fillvals['f4'])
-	#	arr = marray(arr)
-	#	data[d] = arr
-		
+	print 'GreenSeasXLtoNC:\tInfo:\tSaving data from columns:',saveCols
+
+	# Meta data for those columns with only one value:
+	ncVarName={}
+	allNames=[]
+	for h in saveCols:
+		name = self._getNCvarName_(lineTitles[h])
+		#ensure netcdf variable keys are unique:
+		if name in allNames:name+='_'+colnames[h]
+		allNames.append(name)
+		ncVarName[h] = name
+				
+
+	
 	#create data dictionary
 	data={}
 	bad_cells = [xl_cellerror,xl_cellempty,xl_cellblank]
@@ -159,7 +167,9 @@ class GreenSeasXLtoNC:
 		    if isaString:
 			if a.ctype in bad_cells:
 				arr.append(default_fillvals['S1'])
-			else: arr.append(str(a.value))
+			else: 
+			    try:arr.append(str(a.value))
+			    except:arr.append(default_fillvals['S1'])
 		    else:
 			if a.ctype in bad_cells:
 			    arr.append(default_fillvals['f4'])
@@ -216,21 +226,7 @@ class GreenSeasXLtoNC:
 			attributes[lineTitles[h]] = col[0]
 	print 'GreenSeasXLtoNC:\tInfo:\tColumns with only one non-masked "data":', oneValueInColumn
 	print 'GreenSeasXLtoNC:\tInfo:\tnew file attributes:', attributes	
-	
-	# Meta data for those columns with only one value:
-	ncVarName={}
-	allNames=[]
-	for h in saveCols:
-		if h in emptyColummns:continue
-		if h in oneValueInColumn:continue
-		#ncVarName[h] = self._getNCvarName_(lineTitles[h])+'_'+colnames[h]
-		name = self._getNCvarName_(lineTitles[h])
-		#ensure netcdf variable keys are unique:
-		if name in allNames:name+='_'+colnames[h]
-		allNames.append(name)
-		ncVarName[h] = name
-	
-	
+		
 	# convert time data into Datetime:
 	dt=[]
 	timeIsBad = []#{d:0 for d in saveCols}
@@ -274,7 +270,11 @@ class GreenSeasXLtoNC:
 		md='  '
 		for mdt,mdc in zip(metadataTitles,colmeta ):
 			if mdc in ['', None]:continue
-			md +=str(mdt)+':\t'+str(mdc)+'\n  '
+			try:md +=str(mdt)+':\t'+str(mdc)+'\n  '
+			except:
+				#rint 'Found and exception in unicode:',md, mdt,mdc
+				md +=unicode(mdt+':\t'+mdc+'\n  ').encode('ascii','ignore')
+				print md
 		metadata[h] = md
 	
 		
@@ -312,7 +312,9 @@ class GreenSeasXLtoNC:
 	if locName in exceptions.keys(): return exceptions[locName]
 
 	#need to remove a lot of the dodgy characters.
-	a = str(locName.replace(' ',''))
+	try:a = str(locName)
+	except: a = unicode(locName).encode('ascii','ignore')
+	a = a.replace(' ','')
 	a = a.replace('Total', 'T')
 	a = a.replace('Temperature' , 'Temp')
 	a = a.replace('Chlorophyll', 'Chl')
