@@ -172,7 +172,12 @@ class GreenSeasXLtoNC:
 	ckey={}
 	for n,l in enumerate(locator):
 	    if l in [ 'time','t', 'Date& Time (local)']: ckey['time']=n
-
+	    if l.lower() in [ 'lat', 'latitude']: ckey['lat']=n
+	    if l.lower() in [ 'lon','long', 'longitude']: ckey['lon']=n
+	    if l in [ 'Depth of sample [m]']: ckey['z']=n
+      	    if l in [ 'Depth of Sea [m]',]: ckey['bathy']=n
+      	    if l in [ 'UTC offset',]: ckey['tOffset']=n
+	    if l in ['Institute',]: ckey['Institute']=n
 	
 	bad_cells = [xl_cellerror,xl_cellempty,xl_cellblank]
 	    
@@ -226,8 +231,6 @@ class GreenSeasXLtoNC:
 
 	print 'GreenSeasXLtoNC:\tInfo:\tSaving data from columns:',saveCols
 
-
-	
 	# Meta data for those columns with only one value:
 	ncVarName={}
 	allNames=[]
@@ -275,11 +278,9 @@ class GreenSeasXLtoNC:
 			else:
 			    try:   	arr.append(float(a.value))
 			    except:	arr.append(default_fillvals['f4'])
-
 		data[d] = marray(arr)
 		
-				
-				
+							
 	# count number of data in each column:
 	print 'GreenSeasXLtoNC:\tInfo:\tCount number of data in each column...' # can be slow
 	datacounts = {d:0 for d in saveCols}
@@ -313,25 +314,29 @@ class GreenSeasXLtoNC:
 	
 
 		
-
-	print 'GreenSeasXLtoNC:\tInfo:\tFigure out which rows are being saved...'
+	fillvals = default_fillvals.values()
+	print 'GreenSeasXLtoNC:\tInfo:\tFigure out which rows should be saved...'
 	saveRows={ a: False for a in index.keys()} #index.keys() are rows in data. #index.values are rows in excel.
 	for r in sorted(saveRows.keys()):
-		if data[ckey['time']][r] in ['', None, default_fillvals['f4'],]: continue
-		if data[ckey['time']][r] in default_fillvals: continue	
+		if data[ckey['time']][r] in ['', None,]: continue
+		if data[ckey['time']][r] in fillvals: continue	
 		for d in saveCols:
 			if saveRows[r] == True:break
 			if data[d][r] in ['', None, ]: continue
-			if data[d][r] in default_fillvals: continue	
+			if data[d][r] in fillvals: continue	
 			saveRows[r] = True
 
 	print 'GreenSeasXLtoNC:\tInfo:\tCount number of data in each row...' # can be slow			
-	rowcounts = {d:0 for d in saveRows.keys() if saveRows[d]}
+	rowcounts = {d:0 for d in saveRows.keys()}
 	for r in sorted(rowcounts.keys()):
+		if saveRows[r] == False: continue
 		for d in saveCols:
-			if data[d][r] in ['', None, default_fillvals['f4'],]: continue
+			if d<20:continue
+			if data[d][r] in ['', None, ]:continue
+			if data[d][r] in fillvals: continue
 			rowcounts[r] += 1
-	
+	print 'GreenSeasXLtoNC:\tInfo:\tnumber of data:',rowcounts
+		
 
 	# get data type (ie float, int, etc...):
 	# netcdf4 requries some strange names for datatypes: 
@@ -493,17 +498,20 @@ class GreenSeasXLtoNC:
 	arr=[]
 	for a,val in enumerate(self.index.values()):    
 	    if not self.saveRows[a]: continue
+	    if self.rowcounts[a] ==0 :continue
 	    arr.append(val)
 	nco.variables['index'][:] = marray(arr)
 	
 	for v in self.saveCols:
 		if v in self.dataIsAString:continue		
-		print 'GreenSeasXLtoNC:\tInfo:\tSaving data:',v,self.ncVarName[v]
+		print 'GreenSeasXLtoNC:\tInfo:\tSaving data:',v,self.ncVarName[v],
 		arr =  []
 		for a,val in enumerate(self.data[v]):
 			if not self.saveRows[a]: continue
+			if self.rowcounts[a]==0:continue			
 			arr.append(val)
 		nco.variables[self.ncVarName[v]][:] = marray(arr)
+		print len(arr)
 				
 	
 	print 'GreenSeasXLtoNC:\tInfo:\tCreated ',self.fno
