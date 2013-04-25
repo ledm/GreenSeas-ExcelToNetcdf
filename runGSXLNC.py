@@ -3,8 +3,8 @@
 from GreenSeasXLtoNC import GreenSeasXLtoNC
 
 ##fni is path to the input excel spreadsheet 
-fni = 'xlsx/AtlanticData.xlsx'
-
+#fni = 'xlsx/AtlanticData.xlsx'
+fni = 'xlsx/AtlanticData_short.xlsx'
 
 ##fno is the output netcdf file you are going to create
 #fno = 'AtlanticData.nc'

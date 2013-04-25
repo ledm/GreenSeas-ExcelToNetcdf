@@ -28,27 +28,31 @@ from dateutil.parser import parse
 	
 	# why are so many values fill 
 	
+	
 
 class GreenSeasXLtoNC:
   def __init__(self, fni, fno,datanames=[u'Temperature',], saveShelve=False,saveNC=True):
 	self.fni = fni
 	self.fno = fno
 	self.datanames=datanames
-	self.saveShelve = saveShelve
 	self.saveNC = saveNC	
+	self.saveShelve = saveShelve
 	self._run_()
 
 
   def _run_(self):
 	if not self._load_():return
+	self._findHeader_()
 	self._getData_()
-	if self.saveShelve:
-		if self.fno[-7:]!='.shelve':self.outShelveName =self.fno+'.shelve'
-		self._saveShelve_()
+
 	if self.saveNC:
 		if self.fno[-3:]!='.nc':self.fno =self.fno+'.nc'	
 		self._saveNC_()
 	
+	if self.saveShelve:
+		if self.fno[-7:]!='.shelve':self.outShelveName =self.fno+'.shelve'
+		self._saveShelve_()
+			
   def _load_(self):
 	print 'GreenSeasXLtoNC:\tINFO:\topening:',self.fni
 	if not exists(self.fni):
@@ -73,54 +77,132 @@ class GreenSeasXLtoNC:
 	print self.datasheet.name, 'sheet size is ',self.datasheet.nrows,' x ', self.datasheet.ncols
 	return True
 
+  def _findHeader_(self):
 
+	heads = set(['SSTTemp', '5mdepthTemp', '10mdepthTemp', 'Temp', 'MLDTemp', 'MLD', '1pcentlightlevel',
+		'TchlorophyllconcChla', 'Sal', 'Wateropticalmeasure1', 'Wateropticalmeasure2', 'Conversionfactor',
+		'DepthofDeepChlamax', 'ConcChlamax', 'nanoplankton1015microm', 'nanoplankton1520microm',
+		'microplankton2030microm', 'microplankton3050microm', 'microplankton50100microm', 'flagellate_Size220um',
+		'flagellate_Size2um', 'Silicoflagellida', 'Choanoflagellida', 'flagellate_Size5um', 'flagellate_Size15um',
+		'Dinophyceae_SizeGT20um', 'Dinophyceae_SizeGT20umheterotrophic', 'Strombidiumspp', 'Strobilidiumspp',
+		'Ciliatea', 'bacteria', 'cyanobacteria', 'bacteriaheterotrophic', 'picoeukaryotic', 'Synechococcusspp',
+		'Prochlorococcusspp', 'Dinophyceae_SizeGT20umSubgroupheterotrophic', 'Strombidiumspp_204',
+		'Tintinnidae', 'PhosphatePO4', 'DissNitrateDepthGT1uMconc', 'DissNitrateDepthLT1uMconc', 'NitriteNO2',
+		'NitrateNitrite', 'DissAmmonium', 'DissSilicate', 'Silicate', 'Dissbioavailableiron', 'FEIron', 
+		'concoxygen', 'saturationofoxygen', 'TCarbonPOC10um', 'TCarbonPOC200um', 'TCarbonPOC5um', 'TCarbonPOC2um',
+		'TCarbonPOCGTGFF', 'DissoxygenatMLD', 'Dissoxygenatsurface', 'Dissoxygenat5m', 'Dissoxygenat10m',
+		'Nitrogen10um', 'Nitrogen200um', 'Nitrogen5um', 'Nitrogen2um', 'DissInorganicCarbon', 'InorganicCarbon',
+		'Alkalinity', 'SPMinorganicsuspendedparticulatematter', 'SPMorganicsuspendedparticulatematter'] )
+		
+	expectedUnits = [ 'Units','Index', 'CODE', 'umol/l', 'N mol/ L', 'micromol m-3', 'umol/l/d', 'Abundance per L ?', '(mmol O2 m-3)',
+	'(umol N /l)', 'mmol m-3', 'f-ratio', 'sum', 'mmol N (or P) m-3 d-1', 'weight units? ', 'total N uptake Chl-normalised',
+	'pH', 'mg m-3  < 5um', 'mg m-3  < 20um', 'h', 'number per L?', '%', 'm ', 'g C m-3 d-1', 'M/Sec', 'proportion', '# per ml',
+	'UG/L', 'nmol/l', 'other', 'PH', 'Meters', 'dimensionless', 'Number in sample?', 'Kgl', 'Beaufort', 'ML/L',
+	'nmol  l-1 h-1', 'mg C m-3 d-1', '(mmol N m-3)', 'mmol  m-2 d-1', 'mmhg', 'Quality score', 'M', 'mg m-3  < 2um',
+	'mg m-3', ' # per ml', 'L', 'data quality', 'Weight ?    ', 'COMPASS', 'mg C / m3/h', 'MEQ/L', 'degC', 'mg C / m3/d',
+	'Number per L?', 'l/kg', 'Species', '(mg C m-3)', 'umol /l', 'total N uptake nutrient', 'weight units?',
+	'(mmol Fe m-3)', '[m]', 'm', 'Number', 'number per L? ', '(mmol Si m-3)', '# per m3', '(umol eq kg)',
+	'total N uptake N-normalised', 'mg C m-3', 'sum', 'CODE10', '(mmol P m-3)', 'Quality', '(umol O2/ l)', 'PSU']
+
+			
+	expectedloc = ['summerschool','Location', 'Long', 'Lat', 'Long', 'Depth of Sea [m]', 'Depth of sample [m]',
+		 'Date& Time (local)', 'Ti me', 'UTC offset', 'measure type1', 'measure type2', 'duplicated (1=Y, 0=N)',
+		 'GS Originator / PI', 'Originator / PI', 'Institute', 'Research Group(s) if relevant',
+		 'Data collection method(s) description']
+	
+	expectedMetadata = ['Meta Data', 'Data Title', 'Units', 'Subtitle 1', 'Subtitle 2', 'Subtitle 3',
+			'Field description', 'Originator / PI', 'Institute', 'Research Group(s) if relevant',
+			'Data collection method(s) description',
+			'Explanation/ reference of any conversion factors or aggregation used (if relevant)',]
+						
+	metas = set(self._getNCvarName_(e) for e in expectedMetadata)
+	locs = set(self._getNCvarName_(e) for e in expectedloc)
+	uns = set(self._getNCvarName_(e) for e in expectedUnits)
+	
+	#column search
+	metaCols ={}
+	for c in xrange(100):
+		potMD = [self._getNCvarName_(h.value) for h in self.datasheet.col(c)[0:50]]
+		inBoth=metas.intersection(potMD)
+
+		if len(inBoth)> 0:
+			print 'Found a meta data column candidate:',c,':', len(inBoth)
+			metaCols[c] = len(inBoth)
+	
+
+	
+	#row search
+	headRows, lowRows, unitRows={},{},{}
+	for r in xrange(50):
+		pot = [self._getNCvarName_(h.value) for h in self.datasheet.row(r)[:]]
+		headBoth = heads.intersection(pot)
+		locBoth  = locs.intersection(pot)
+		unitBoth = uns.intersection(pot)
+		if len(headBoth)>0:
+			#print 'Found the Header row candidate:  ',r,':', len(headBoth)
+			headRows[r] = len(headBoth)
+		if len(locBoth)> 0:
+			#print 'Found the location row candidate:',r,':', len(locBoth)	
+			lowRows[r] = len(locBoth)
+		if len(unitBoth)> 0:
+			#print 'Found the unit row candidate:',r,':', len(unitBoth)	
+			unitRows[r] = len(unitBoth)
+						
+
+	self.locR  = keywithmaxval(lowRows)
+	self.headR = keywithmaxval(headRows)
+	self.unitR = keywithmaxval(unitRows)
+	self.metaC = keywithmaxval(metaCols)
+	
+	print 'best Column for metadata is column: ',self.metaC
+	print 'best Row for Header is row: ',self.headR
+	print 'best row for locations is row: ',self.locR
+	print 'best row for units is row: ',self.unitR
+
+
+	
+	    
 
   def _getData_(self):
 	#loading file metadata
-	header   = [h.value for h in self.datasheet.row(1)]
-	units    = [h.value for h in self.datasheet.row(2)]
-	locator  = [h.value for h in self.datasheet.row(11)[0:20]]
-	
-	
-	
+	header   = [h.value for h in self.datasheet.row(self.headR)]
+	units    = [h.value for h in self.datasheet.row(self.unitR)]
+	locator  = [h.value for h in self.datasheet.row(self.locR)[0:20]]
 	
 	ckey={}
 	for n,l in enumerate(locator):
-	    if l.lower() in [ 'lat', 'latitude']: ckey['lat']=n
-	    if l.lower() in [ 'lon','long', 'longitude']: ckey['lon']=n
 	    if l in [ 'time','t', 'Date& Time (local)']: ckey['time']=n
-	    if l in [ 'Depth of sample [m]']: ckey['z']=n
-	    if l in [ 'Depth of Sea [m]',]: ckey['bathy']=n
-	    if l in [ 'UTC offset',]: ckey['tOffset']=n
-	    if l in ['Institute',]: ckey['Institute']=n
+
+	
+	bad_cells = [xl_cellerror,xl_cellempty,xl_cellblank]
 	    
-	metadataTitles = [h.value for h in self.datasheet.col(ckey['tOffset']+1)[0:12]]
-	time     = [h.value for h in self.datasheet.col(ckey['time'])[20:]]
-	attributes={}
-		    
+	metadataTitles = {r:h.value for r,h in enumerate(self.datasheet.col(self.metaC)[:]) if h.ctype not in bad_cells}
+	endofHeadRow=max(metadataTitles.keys())
+	
+
+
+		  
 	    
 	#create excel coordinates for netcdf.
-	#index begins at 21 because excel rows start at 1.
-	self.index = xrange(21, 21+len(time))
-	colnames = {h: colname(h) for h,head in enumerate(self.datasheet.row(1))}
+	colnames = {h: colname(h) for h,head in enumerate(self.datasheet.row(0))} # row number doesn't matter here
 
-
-	# add location to netcdf
+	# which columns are we saving?
 	saveCols={}
 	lineTitles={}
 	unitTitles={}
+	attributes={}	
 	for l,loc in enumerate(locator):	
 		if loc in ['', None]:continue
 		print 'GreenSeasXLtoNC:\tInfo:\tFOUND:\t',l,'\t',loc, 'in locator'
-		#if l not in saveCols:
 		saveCols[l] = True
 		lineTitles[l]=loc
 		unitTitles[l]=''
 		if loc.find('[') > 0:
 		  unitTitles[l]=loc[loc.find('['):].replace(']','')
 	
-	attributes['Note'] = header[5]
-	header[5]=''
+	if header[5].find('Note')>-1:
+		attributes['Note'] = header[5]
+		header[5]=''
 	
 	# flag for saving all columns:
 	if 'all' in self.datanames:
@@ -144,104 +226,112 @@ class GreenSeasXLtoNC:
 
 	print 'GreenSeasXLtoNC:\tInfo:\tSaving data from columns:',saveCols
 
+
+	
 	# Meta data for those columns with only one value:
 	ncVarName={}
 	allNames=[]
 	for h in saveCols:
 		name = self._getNCvarName_(lineTitles[h])
 		#ensure netcdf variable keys are unique:
-		if name in allNames:name+='_'+colnames[h]
+		if name in allNames:name+='_'+ucToStr(colnames[h])
 		allNames.append(name)
 		ncVarName[h] = name
-				
 
-	
+
+	# make an index to link netcdf back to spreadsheet
+	index = {}
+	for r in xrange(len(self.datasheet.col(saveCols[0])[endofHeadRow:])):
+		index[r] = r+r+endofHeadRow
+			
 	#create data dictionary
-	data={}
-	bad_cells = [xl_cellerror,xl_cellempty,xl_cellblank]
+	data={}	
+	tunit='seconds since 1900-00-00'
+	unitTitles[ckey['time']] = tunit
 	for d in saveCols:
-		data[d]= self.datasheet.col(d)[20:]
+		tmpdata= self.datasheet.col(d)[endofHeadRow:]
 		arr = []
-		isaString = self._isaString_(lineTitles[d])
-		for a in data[d][:]:
-		    if isaString:
+		if d == ckey['time']: # time
+		    for a in tmpdata[:]:
 			if a.ctype in bad_cells:
-				arr.append(default_fillvals['S1'])
+			    arr.append(default_fillvals['i8'])		   
+			else:
+			    try:  	arr.append(int64(date2num(parse(a.value),units=tunit)))
+			    except:	arr.append(default_fillvals['i8'])
+		    data[d] = marray(arr)			    
+		    continue
+		isaString = self._isaString_(lineTitles[d])
+		if isaString: #strings
+		   for a in tmpdata[:]:
+			if a.ctype in bad_cells:
+			    arr.append(default_fillvals['S1'])
 			else: 
-			    try:arr.append(str(a.value))
-			    except:arr.append(default_fillvals['S1'])
-		    else:
+			    try:	arr.append(ucToStr(a.value))
+			    except:	arr.append(default_fillvals['S1'])
+		else: # data
+		   for a in tmpdata[:]:		
 			if a.ctype in bad_cells:
 			    arr.append(default_fillvals['f4'])
 			else:
-			    try:   arr.append(float(a.value))
-			    except:arr.append(default_fillvals['f4'])
-		arr = marray(arr)
-		data[d] = arr
+			    try:   	arr.append(float(a.value))
+			    except:	arr.append(default_fillvals['f4'])
+
+		data[d] = marray(arr)
+		
 				
 				
-	# count number of datapoints in each column:
-	print 'GreenSeasXLtoNC:\tInfo:\tCount number of datapoints in each column...' # can be slow
+	# count number of data in each column:
+	print 'GreenSeasXLtoNC:\tInfo:\tCount number of data in each column...' # can be slow
 	datacounts = {d:0 for d in saveCols}
 	for d in saveCols:
 		for i in data[d][:]:
-	 		if i: datacounts[d]+=1
+			if i in ['', None, ]: continue
+			if i in default_fillvals: continue			
+	 		datacounts[d]+=1
 	print 'GreenSeasXLtoNC:\tInfo:\tNumber of entries in each datacolumn:', datacounts
 	
-	
-	# count number of datapoints in each row:
-	print 'GreenSeasXLtoNC:\tInfo:\tCount number of datapoints in each row...' # can be slow	
-	rowcounts = {d:0 for d in xrange(len(time))}
-	for r in sorted(rowcounts.keys()):
-		for d in saveCols:
-			if d<20:continue
-			#if rowcounts[r]: break
-			if data[d][r] in ['', None, default_fillvals['f4'],]: continue
-			rowcounts[r] += 1
-			#print r,d,data[d][r],rowcounts[r] 
-
-	
-	
-	# list data columns with no data
-	emptyColummns=[]
+			
+		
+	# list data columns with no data or only one value	
 	for h in saveCols:
 		if datacounts[h] == 0:
 			print 'GreenSeasXLtoNC:\tInfo:\tNo data for column ',h,lineTitles[h],'[',unitTitles[h],']'
-			emptyColummns.append(h)
-	print 'GreenSeasXLtoNC:\tInfo:\tEmpty Columns of "data":', emptyColummns
-		
-	# list data columns with only one value	
-	oneValueInColumn=[]
-
-	for h in saveCols:
-		if h in emptyColummns:continue
+			saveCols.remove(h)
+			continue	
 		col = sorted(data[h])
 		if col[0] == col[-1]:
-			print 'GreenSeasXLtoNC:\tInfo:\tonly one "data": ',lineTitles[h],'[',unitTitles[h],']','value:', col[0]		
 			if col[0] == default_fillvals['f4']:
-				'GreenSeasXLtoNC:\tInfo:\tIgnoring masked data' 
-				emptyColummns.append(h)
-				continue			
-			oneValueInColumn.append(h)
+				print 'GreenSeasXLtoNC:\tInfo:\tIgnoring masked column', h, lineTitles[h],'[',unitTitles[h],']'
+				saveCols.remove(h)				
+				continue
+			print 'GreenSeasXLtoNC:\tInfo:\tonly one "data": ',lineTitles[h],'[',unitTitles[h],']','value:', col[0]
+			saveCols.remove(h)
 			attributes[lineTitles[h]] = col[0]
-	print 'GreenSeasXLtoNC:\tInfo:\tColumns with only one non-masked "data":', oneValueInColumn
+
 	print 'GreenSeasXLtoNC:\tInfo:\tnew file attributes:', attributes	
+	
+	
+
 		
-	# convert time data into Datetime:
-	dt=[]
-	timeIsBad = []#{d:0 for d in saveCols}
-	tunit='seconds since 1900-00-00'	
-	for n,t in enumerate(time):
-		try: 
-		    dt.append(date2num(parse(t),units=tunit) )
-		    timeIsBad.append(False)	
-		except:
-		    dt.append(-1)
-		    timeIsBad.append(True)		    
-	data[9] = masked_where(dt==-1,dt)
-	unitTitles[9] = tunit
-	time = data[9]
-		
+
+	print 'GreenSeasXLtoNC:\tInfo:\tFigure out which rows are being saved...'
+	saveRows={ a: False for a in index.keys()} #index.keys() are rows in data. #index.values are rows in excel.
+	for r in sorted(saveRows.keys()):
+		if data[ckey['time']][r] in ['', None, default_fillvals['f4'],]: continue
+		if data[ckey['time']][r] in default_fillvals: continue	
+		for d in saveCols:
+			if saveRows[r] == True:break
+			if data[d][r] in ['', None, ]: continue
+			if data[d][r] in default_fillvals: continue	
+			saveRows[r] = True
+
+	print 'GreenSeasXLtoNC:\tInfo:\tCount number of data in each row...' # can be slow			
+	rowcounts = {d:0 for d in saveRows.keys() if saveRows[d]}
+	for r in sorted(rowcounts.keys()):
+		for d in saveCols:
+			if data[d][r] in ['', None, default_fillvals['f4'],]: continue
+			rowcounts[r] += 1
+	
 
 	# get data type (ie float, int, etc...):
 	# netcdf4 requries some strange names for datatypes: 
@@ -249,10 +339,8 @@ class GreenSeasXLtoNC:
 	dataTypes={}
 	dataIsAString=[]
 	for h in saveCols:
-		if h in emptyColummns:continue
-		if h in oneValueInColumn:continue
-		dataTypes[h] = data[h].dtype
-		print h,dataTypes[h],
+		dataTypes[h] = marray(data[h]).dtype
+		print 'GreenSeasXLtoNC:\tInfo:\ttype: ',ncVarName[h], h,'\t',dataTypes[h]
 		if dataTypes[h] == float64: dataTypes[h] = 'f8'
 		elif dataTypes[h] == int32: dataTypes[h] = 'i4'
 		elif dataTypes[h] == int64: dataTypes[h] = 'i8'	
@@ -260,41 +348,39 @@ class GreenSeasXLtoNC:
 			dataTypes[h] = 'S1'
 			dataIsAString.append(h)
 
+		
+		
 	#create metadata.
 	metadata = {}
 	for h in saveCols:
-		if h in emptyColummns:continue
-		if h in oneValueInColumn:continue
 		if h in dataIsAString:continue
-		colmeta = [a.value for a in self.datasheet.col(h)[0:12]]
+		colmeta = {metadataTitles[mdk]: self.datasheet.col(h)[mdk] for mdk in metadataTitles.keys() if metadataTitles[mdk] not in ['', None]}
 		md='  '
-		for mdt,mdc in zip(metadataTitles,colmeta ):
+		for mdt,mdc in zip(colmeta.keys(),colmeta.values() ):
 			if mdc in ['', None]:continue
-			try:md +=str(mdt)+':\t'+str(mdc)+'\n  '
-			except:
-				#rint 'Found and exception in unicode:',md, mdt,mdc
-				md +=unicode(mdt+':\t'+mdc+'\n  ').encode('ascii','ignore')
-				print md
+			md +=ucToStr(mdt)+':\t'+ucToStr(mdc)+'\n  '
+			#print md
 		metadata[h] = md
 	
 		
 
 	# save all info as public variables, so that it can be accessed if netCDF creation fails:
 	self.saveCols = saveCols
-	self.emptyColummns = emptyColummns
-	self.oneValueInColumn = oneValueInColumn
+	self.saveRows = saveRows
 	self.rowcounts=rowcounts
 	self.ncVarName = ncVarName
 	self.dataTypes = dataTypes
 	self.dataIsAString=dataIsAString
-	self.timeIsBad = timeIsBad
 	self.metadata=metadata
 	self.colnames = colnames
 	self.data = data
 	self.lineTitles = lineTitles
 	self.unitTitles = unitTitles
 	self.attributes = attributes
-	self.time = time
+	#self.time = time
+	self.index = index
+
+
 
   def _getNCvarName_(self,locName): 
  	# users are welcome to expand this list to include other elements of the green seas database.
@@ -309,11 +395,12 @@ class GreenSeasXLtoNC:
 		'GS Originator / PI': 'gsOriginator', 
 		'Originator / PI': 'originator', 
 		'Research Group(s) if relevant':'researchGroup',}
-	if locName in exceptions.keys(): return exceptions[locName]
+	if locName in exceptions.keys(): return ucToStr(exceptions[locName])
 
-	#need to remove a lot of the dodgy characters.
-	try:a = str(locName)
-	except: a = unicode(locName).encode('ascii','ignore')
+	#need to remove the dodgy unicode characters.
+	a = ucToStr(locName)
+	#try:a = str(locName)
+	#except: a = str(unicode(locName).encode('ascii','ignore'))
 	a = a.replace(' ','')
 	a = a.replace('Total', 'T')
 	a = a.replace('Temperature' , 'Temp')
@@ -349,16 +436,13 @@ class GreenSeasXLtoNC:
 	if exists(self.outShelveName):
 		print 'GreenSeasXLtoNC:\tWARNING:\tOverwriting previous shelve',self.outShelveName
 	s = shOpen(self.outShelveName)
-	s['time'] = self.time
 	s['saveCols'] = self.saveCols
-	s['emptyColummns'] = self.emptyColummns
-	s['oneValueInColumn'] = self.oneValueInColumn
 	s['rowcounts'] =self.rowcounts
 	s['ncVarName'] = self.ncVarName
 	s['dataTypes'] = self.dataTypes
 	s['dataIsAString'] = self.dataIsAString
-	s['timeIsBad'] = self.timeIsBad
-	s['data'] = self.data
+	for h in self.saveCols:
+		s[self.ncVarName[h]] = array(self.data[h])
 	s['lineTitles'] = self.lineTitles
 	s['unitTitles'] = self.unitTitles
 	s['attributes'] = self.attributes	
@@ -367,7 +451,7 @@ class GreenSeasXLtoNC:
   def _saveNC_(self):
 	print 'GreenSeasXLtoNC:\tINFO:\tCreating a new dataset:\t', self.fno
 	nco = Dataset(self.fno,'w')	
-	nco.setncattr('CreatedDate','This netcdf was created on the '+str(date.today()) +' by '+getuser()+' using GreenSeasXLtoNC.py')
+	nco.setncattr('CreatedDate','This netcdf was created on the '+ucToStr(date.today()) +' by '+getuser()+' using GreenSeasXLtoNC.py')
 	nco.setncattr('Original File',self.fni)	
 	for att in self.attributes.keys():
 		print 'GreenSeasXLtoNC:\tInfo:\tAdding Attribute:', att, self.attributes[att]
@@ -376,66 +460,53 @@ class GreenSeasXLtoNC:
 	nco.createDimension('i', None)
 	
 	nco.createVariable('index', 'i4', 'i',zlib=True,complevel=5)
+	
 	for v in self.saveCols:
-		if v in self.emptyColummns:continue
-		if v in self.oneValueInColumn:continue
 		if v in self.dataIsAString:continue
 		print 'GreenSeasXLtoNC:\tInfo:\tCreating var:',v,self.ncVarName[v], self.dataTypes[v]
 		nco.createVariable(self.ncVarName[v], self.dataTypes[v], 'i',zlib=True,complevel=5)
 	
 	nco.variables['index'].long_name =  'Excel Row index'
 	for v in self.saveCols:
-		if v in self.emptyColummns:continue
-		if v in self.oneValueInColumn:continue
 		if v in self.dataIsAString:continue		
 		print 'GreenSeasXLtoNC:\tInfo:\tAdding var long_name:',v,self.ncVarName[v], self.lineTitles[v]
 		nco.variables[self.ncVarName[v]].long_name =  self.lineTitles[v]
 
 	nco.variables['index'].units =  ''		
 	for v in self.saveCols:
-		if v in self.emptyColummns:continue
-		if v in self.oneValueInColumn:continue
 		if v in self.dataIsAString:continue		
 		print 'GreenSeasXLtoNC:\tInfo:\tAdding var units:',v,self.ncVarName[v], self.unitTitles[v]	
 		nco.variables[self.ncVarName[v]].units =  self.unitTitles[v].replace('[','').replace(']','')
 
 	nco.variables['index'].metadata =  ''
 	for v in self.saveCols:
-		if v in self.emptyColummns:continue
-		if v in self.oneValueInColumn:continue
 		if v in self.dataIsAString:continue		
-		print 'GreenSeasXLtoNC:\tInfo:\tAdding meta data:',v, self.metadata[v]	
+		print 'GreenSeasXLtoNC:\tInfo:\tAdding meta data:',v#, self.metadata[v]	
 		nco.variables[self.ncVarName[v]].metadata =  self.metadata[v]
 
 	nco.variables['index'].xl_column =  '-1'	
 	for v in self.saveCols:
-		if v in self.emptyColummns:continue
-		if v in self.oneValueInColumn:continue
 		if v in self.dataIsAString:continue	
 		print 'GreenSeasXLtoNC:\tInfo:\tAdding excell column name:',v,self.ncVarName[v],':', self.colnames[v]
 		nco.variables[self.ncVarName[v]].xl_column =  self.colnames[v]
 	
 	arr=[]
-	for a,val in enumerate(self.index):
-	    if self.rowcounts[a]== 0:continue
-	    if self.timeIsBad[a]: continue
+	for a,val in enumerate(self.index.values()):    
+	    if not self.saveRows[a]: continue
 	    arr.append(val)
 	nco.variables['index'][:] = marray(arr)
 	
 	for v in self.saveCols:
-		if v in self.emptyColummns:continue
-		if v in self.oneValueInColumn:continue
 		if v in self.dataIsAString:continue		
 		print 'GreenSeasXLtoNC:\tInfo:\tSaving data:',v,self.ncVarName[v]
 		arr =  []
 		for a,val in enumerate(self.data[v]):
-			if self.rowcounts[a]== 0:continue
-			if self.timeIsBad[a]: continue
+			if not self.saveRows[a]: continue
 			arr.append(val)
 		nco.variables[self.ncVarName[v]][:] = marray(arr)
 				
 	
-
+	print 'GreenSeasXLtoNC:\tInfo:\tCreated ',self.fno
 	nco.close()
 
 #--------------------------------------------------
@@ -460,8 +531,15 @@ def lastWord(a, separator='/',debug=False):
 	if debug: print 'final word:', a[count:]
 	return a[count:]
 	
+def keywithmaxval(d):
+	""" Figure out the key of the maximum value in a dictionairy"""
+	# returns first one
+	v,k=list(d.values()),list(d.keys())
+	return k[v.index(max(v))]	
 	
-
+def ucToStr(d):
+	try: return str(d)
+	except:return unicode(d).encode('ascii','ignore')
 
 
 

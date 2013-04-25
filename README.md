@@ -13,6 +13,7 @@ You'll also need the standard python and netcdf libraries installed.
 Note that no GreenSeas excel files are provided with this package.
 
 
+
 GreenSeas-ExcelToNetcdf contents:
 ---------------------------------
 
@@ -46,6 +47,9 @@ This file uses matplotlib.pyplot to make a time series plot of the data added in
 
 Caveats:
 --------
+
+* GreenSeasXLtoNC is still in beta phase, so make sure you update regularly.
+
 * GreenSeasXLtoNC does not support netcdf string varialbes.
 
 * GreenSeasXLtoNC is not yet flexible for different excel input formats.
