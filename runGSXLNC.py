@@ -16,7 +16,7 @@ fni = 'xlsx/AtlanticData_short.xlsx'
 
 
 ## a minimal selection for fast testing:
-dns=['Temperature']
+#dns=['Temperature']
 fno='AtlanticData_temp.nc'
 
 ## a typical selection of data to convert to netcdf:
@@ -26,7 +26,7 @@ fno='AtlanticData_temp.nc'
 ## Save the entire excell file to netcdf:
 ## (datanames = 'all' is a flag for saving all the columns of the excell file.
 ## 	although it still ignores columns with no data.)
-#dns = ['all',]
+dns = ['all',]
 #fno = 'AtlanticData_all.nc'
 
 

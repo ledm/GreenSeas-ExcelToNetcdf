@@ -167,7 +167,9 @@ class GreenSeasXLtoNC:
 	#loading file metadata
 	header   = [h.value for h in self.datasheet.row(self.headR)]
 	units    = [h.value for h in self.datasheet.row(self.unitR)]
-	locator  = [h.value for h in self.datasheet.row(self.locR)[0:20]]
+
+	lastMetaColumn = 20	
+	locator  = [h.value for h in self.datasheet.row(self.locR)[:lastMetaColumn]]
 	
 	ckey={}
 	for n,l in enumerate(locator):
@@ -183,10 +185,9 @@ class GreenSeasXLtoNC:
 	    
 	metadataTitles = {r:h.value for r,h in enumerate(self.datasheet.col(self.metaC)[:]) if h.ctype not in bad_cells}
 	endofHeadRow=max(metadataTitles.keys())
-	
 
 
-		  
+
 	    
 	#create excel coordinates for netcdf.
 	colnames = {h: colname(h) for h,head in enumerate(self.datasheet.row(0))} # row number doesn't matter here
@@ -211,7 +212,7 @@ class GreenSeasXLtoNC:
 	
 	# flag for saving all columns:
 	if 'all' in self.datanames:
-		for head in header[20:]:
+		for head in header[lastMetaColumn:]:
 			if head == '': continue	
 			self.datanames.append(head)
 	
@@ -245,7 +246,7 @@ class GreenSeasXLtoNC:
 	# make an index to link netcdf back to spreadsheet
 	index = {}
 	for r in xrange(len(self.datasheet.col(saveCols[0])[endofHeadRow:])):
-		index[r] = r+r+endofHeadRow
+		index[r] = r+endofHeadRow
 			
 	#create data dictionary
 	data={}	
@@ -316,26 +317,30 @@ class GreenSeasXLtoNC:
 		
 	fillvals = default_fillvals.values()
 	print 'GreenSeasXLtoNC:\tInfo:\tFigure out which rows should be saved...'
-	saveRows={ a: False for a in index.keys()} #index.keys() are rows in data. #index.values are rows in excel.
+	saveRows  = {a: False for a in index.keys()} #index.keys() are rows in data. #index.values are rows in excel.
+	rowcounts = {a:0      for a in index.keys()}	
+	
 	for r in sorted(saveRows.keys()):
 		if data[ckey['time']][r] in ['', None,]: continue
 		if data[ckey['time']][r] in fillvals: continue	
 		for d in saveCols:
-			if saveRows[r] == True:break
+			if d<lastMetaColumn:continue
 			if data[d][r] in ['', None, ]: continue
 			if data[d][r] in fillvals: continue	
+			rowcounts[r] += 1			
 			saveRows[r] = True
 
-	print 'GreenSeasXLtoNC:\tInfo:\tCount number of data in each row...' # can be slow			
-	rowcounts = {d:0 for d in saveRows.keys()}
-	for r in sorted(rowcounts.keys()):
-		if saveRows[r] == False: continue
-		for d in saveCols:
-			if d<20:continue
-			if data[d][r] in ['', None, ]:continue
-			if data[d][r] in fillvals: continue
-			rowcounts[r] += 1
-	print 'GreenSeasXLtoNC:\tInfo:\tnumber of data:',rowcounts
+	#print 'GreenSeasXLtoNC:\tInfo:\tCount number of data in each row...' # can be slow			
+	#rowcounts = {d:0 for d in saveRows.keys()}
+	#for r in sorted(rowcounts.keys()):
+	#	#if saveRows[r] == False: continue
+	#	for d in saveCols:
+	#		if d<20:continue
+	#		if data[d][r] in ['', None, ]:continue
+	#		if data[d][r] in fillvals: continue
+	#		rowcounts[r] += 1
+	
+	
 		
 
 	# get data type (ie float, int, etc...):
@@ -382,7 +387,6 @@ class GreenSeasXLtoNC:
 	self.lineTitles = lineTitles
 	self.unitTitles = unitTitles
 	self.attributes = attributes
-	#self.time = time
 	self.index = index
 
 
@@ -402,10 +406,8 @@ class GreenSeasXLtoNC:
 		'Research Group(s) if relevant':'researchGroup',}
 	if locName in exceptions.keys(): return ucToStr(exceptions[locName])
 
-	#need to remove the dodgy unicode characters.
+	# shorten and make ascii safe.
 	a = ucToStr(locName)
-	#try:a = str(locName)
-	#except: a = str(unicode(locName).encode('ascii','ignore'))
 	a = a.replace(' ','')
 	a = a.replace('Total', 'T')
 	a = a.replace('Temperature' , 'Temp')
@@ -499,7 +501,7 @@ class GreenSeasXLtoNC:
 	for a,val in enumerate(self.index.values()):    
 	    if not self.saveRows[a]: continue
 	    if self.rowcounts[a] ==0 :continue
-	    arr.append(val)
+	    arr.append(val+1) # accounting for python 0th position is excels = 1st row
 	nco.variables['index'][:] = marray(arr)
 	
 	for v in self.saveCols:
