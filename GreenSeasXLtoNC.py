@@ -45,13 +45,16 @@ class GreenSeasXLtoNC:
 	self._findHeader_()
 	self._getData_()
 
-	if self.saveNC:
-		if self.fno[-3:]!='.nc':self.fno =self.fno+'.nc'	
-		self._saveNC_()
+	if self.fno[-3:]=='.nc':	fno = self.fno[:-3]
+	if self.fno[-7:]=='.shelve': 	fno = self.fno[:-7]
 	
-	if self.saveShelve:
-		if self.fno[-7:]!='.shelve':self.outShelveName =self.fno+'.shelve'
-		self._saveShelve_()
+	self.outShelveName = fno+'.shelve'
+	self.fno 	   = fno+'.nc'
+	
+	
+	if self.saveNC:	self._saveNC_()
+	
+	if self.saveShelve:self._saveShelve_()
 			
   def _load_(self):
 	print 'GreenSeasXLtoNC:\tINFO:\topening:',self.fni
@@ -281,14 +284,14 @@ class GreenSeasXLtoNC:
 			    except:	arr.append(default_fillvals['f4'])
 		data[d] = marray(arr)
 		
-							
+	fillvals = default_fillvals.values()							
 	# count number of data in each column:
 	print 'GreenSeasXLtoNC:\tInfo:\tCount number of data in each column...' # can be slow
 	datacounts = {d:0 for d in saveCols}
 	for d in saveCols:
 		for i in data[d][:]:
 			if i in ['', None, ]: continue
-			if i in default_fillvals: continue			
+			if i in fillvals: continue			
 	 		datacounts[d]+=1
 	print 'GreenSeasXLtoNC:\tInfo:\tNumber of entries in each datacolumn:', datacounts
 	
@@ -302,7 +305,7 @@ class GreenSeasXLtoNC:
 			continue	
 		col = sorted(data[h])
 		if col[0] == col[-1]:
-			if col[0] == default_fillvals['f4']:
+			if col[0] in fillvals:
 				print 'GreenSeasXLtoNC:\tInfo:\tIgnoring masked column', h, lineTitles[h],'[',unitTitles[h],']'
 				saveCols.remove(h)				
 				continue
@@ -315,7 +318,7 @@ class GreenSeasXLtoNC:
 	
 
 		
-	fillvals = default_fillvals.values()
+
 	print 'GreenSeasXLtoNC:\tInfo:\tFigure out which rows should be saved...'
 	saveRows  = {a: False for a in index.keys()} #index.keys() are rows in data. #index.values are rows in excel.
 	rowcounts = {a:0      for a in index.keys()}	
@@ -359,7 +362,7 @@ class GreenSeasXLtoNC:
 			dataIsAString.append(h)
 
 		
-		
+	print 'GreenSeasXLtoNC:\tInfo:\tCreate MetaData...'	
 	#create metadata.
 	metadata = {}
 	for h in saveCols:
