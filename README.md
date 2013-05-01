@@ -44,6 +44,10 @@ plotFromNC.py
 This file uses matplotlib.pyplot to make a time series plot of the data added into the new netcdf.
 
 
+Regarding dates in Excel Spreadsheets
+-------------------------------------
+"In reality, there are no such things. What you have are floating point numbers and pious hope. There are several problems with Excel dates. -xlrd documentation"
+
 
 Caveats:
 --------
@@ -53,8 +57,6 @@ Caveats:
 * GreenSeasXLtoNC does not support netcdf string varialbes.
 
 * GreenSeasXLtoNC is not yet flexible for different excel input formats.
-
-* GreenSeasXLtoNC does not yet include much of the GreenSeas metadata.
 
 * GreenSeasXLtoNC is the early draft stage, so please email me (ledm@pml.ac.uk) if you see a bug, or if you need some help running it, or want to request features. 
 

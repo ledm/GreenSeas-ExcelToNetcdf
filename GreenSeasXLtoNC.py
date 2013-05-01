@@ -132,15 +132,21 @@ class GreenSeasXLtoNC:
 			print 'Found a meta data column candidate:',c,':', len(inBoth)
 			metaCols[c] = len(inBoth)
 	
-
+	self.metaC = keywithmaxval(metaCols)
 	
 	#row search
 	headRows, lowRows, unitRows={},{},{}
+	metaRow = {}
 	for r in xrange(50):
 		pot = [self._getNCvarName_(h.value) for h in self.datasheet.row(r)[:]]
 		headBoth = heads.intersection(pot)
 		locBoth  = locs.intersection(pot)
 		unitBoth = uns.intersection(pot)
+		metaBoth  = metas.intersection(pot)
+		if len(metaBoth)>0: 
+			print 'Found the meta row candidate:', r, len(metaBoth),pot[self.metaC], metaBoth
+			metaRow[r] = len(metaBoth)
+			
 		if len(headBoth)>0:
 			#print 'Found the Header row candidate:  ',r,':', len(headBoth)
 			headRows[r] = len(headBoth)
@@ -155,9 +161,9 @@ class GreenSeasXLtoNC:
 	self.locR  = keywithmaxval(lowRows)
 	self.headR = keywithmaxval(headRows)
 	self.unitR = keywithmaxval(unitRows)
-	self.metaC = keywithmaxval(metaCols)
+	self.maxMDR = max(metaRow.keys())
 	
-	print 'best Column for metadata is column: ',self.metaC
+	print 'best Column for metadata is column: ',self.metaC, 'to row:',self.maxMDR
 	print 'best Row for Header is row: ',self.headR
 	print 'best row for locations is row: ',self.locR
 	print 'best row for units is row: ',self.unitR
@@ -171,7 +177,7 @@ class GreenSeasXLtoNC:
 	header   = [h.value for h in self.datasheet.row(self.headR)]
 	units    = [h.value for h in self.datasheet.row(self.unitR)]
 
-	lastMetaColumn = 20	
+	lastMetaColumn = 20
 	locator  = [h.value for h in self.datasheet.row(self.locR)[:lastMetaColumn]]
 	
 	ckey={}
@@ -186,7 +192,7 @@ class GreenSeasXLtoNC:
 	
 	bad_cells = [xl_cellerror,xl_cellempty,xl_cellblank]
 	    
-	metadataTitles = {r:h.value for r,h in enumerate(self.datasheet.col(self.metaC)[:]) if h.ctype not in bad_cells}
+	metadataTitles = {r:h.value for r,h in enumerate(self.datasheet.col(self.metaC)[:self.maxMDR]) if h.ctype not in bad_cells}
 	endofHeadRow=max(metadataTitles.keys())
 
 
@@ -233,7 +239,7 @@ class GreenSeasXLtoNC:
 	saveCols = sorted(saveCols.keys())	
 	
 
-	print 'GreenSeasXLtoNC:\tInfo:\tSaving data from columns:',saveCols
+	print 'GreenSeasXLtoNC:\tInfo:\tInterograting columns:',saveCols
 
 	# Meta data for those columns with only one value:
 	ncVarName={}
@@ -248,15 +254,15 @@ class GreenSeasXLtoNC:
 
 	# make an index to link netcdf back to spreadsheet
 	index = {}
-	for r in xrange(len(self.datasheet.col(saveCols[0])[endofHeadRow:])):
-		index[r] = r+endofHeadRow
+	for r in xrange(len(self.datasheet.col(saveCols[0])[self.maxMDR:])):
+		index[r] = r+self.maxMDR
 			
 	#create data dictionary
 	data={}	
 	tunit='seconds since 1900-00-00'
 	unitTitles[ckey['time']] = tunit
 	for d in saveCols:
-		tmpdata= self.datasheet.col(d)[endofHeadRow:]
+		tmpdata= self.datasheet.col(d)[self.maxMDR:]
 		arr = []
 		if d == ckey['time']: # time
 		    for a in tmpdata[:]:
@@ -264,7 +270,11 @@ class GreenSeasXLtoNC:
 			    arr.append(default_fillvals['i8'])		   
 			else:
 			    try:  	arr.append(int64(date2num(parse(a.value),units=tunit)))
-			    except:	arr.append(default_fillvals['i8'])
+			    except:	
+			    	try: 
+			    		arr.append(int(a.value))
+			    		print 'GreenSeasXLtoNC:\tWarning: Can not read time effecitvely:',int(a.value)
+			    	except: arr.append(default_fillvals['i8'])
 		    data[d] = marray(arr)			    
 		    continue
 		isaString = self._isaString_(lineTitles[d])
@@ -285,6 +295,7 @@ class GreenSeasXLtoNC:
 		data[d] = marray(arr)
 		
 	fillvals = default_fillvals.values()							
+
 	# count number of data in each column:
 	print 'GreenSeasXLtoNC:\tInfo:\tCount number of data in each column...' # can be slow
 	datacounts = {d:0 for d in saveCols}
@@ -293,25 +304,28 @@ class GreenSeasXLtoNC:
 			if i in ['', None, ]: continue
 			if i in fillvals: continue			
 	 		datacounts[d]+=1
-	print 'GreenSeasXLtoNC:\tInfo:\tNumber of entries in each datacolumn:', datacounts
+	print 'GreenSeasXLtoNC:\tInfo:\tMax number of entries to in a column:', max(datacounts.values())
 	
 			
 		
 	# list data columns with no data or only one value	
+	removeCol=[]
 	for h in saveCols:
 		if datacounts[h] == 0:
 			print 'GreenSeasXLtoNC:\tInfo:\tNo data for column ',h,lineTitles[h],'[',unitTitles[h],']'
-			saveCols.remove(h)
+			removeCol.append(h)
 			continue	
 		col = sorted(data[h])
 		if col[0] == col[-1]:
 			if col[0] in fillvals:
 				print 'GreenSeasXLtoNC:\tInfo:\tIgnoring masked column', h, lineTitles[h],'[',unitTitles[h],']'
-				saveCols.remove(h)				
+				removeCol.append(h)				
 				continue
 			print 'GreenSeasXLtoNC:\tInfo:\tonly one "data": ',lineTitles[h],'[',unitTitles[h],']','value:', col[0]
-			saveCols.remove(h)
-			attributes[lineTitles[h]] = col[0]
+			removeCol.append(h)
+			attributes[makeStringSafe(ucToStr(lineTitles[h]))] = ucToStr(col[0])
+
+	for r in removeCol:saveCols.remove(r)
 
 	print 'GreenSeasXLtoNC:\tInfo:\tnew file attributes:', attributes	
 	
@@ -321,19 +335,23 @@ class GreenSeasXLtoNC:
 
 	print 'GreenSeasXLtoNC:\tInfo:\tFigure out which rows should be saved...'
 	saveRows  = {a: False for a in index.keys()} #index.keys() are rows in data. #index.values are rows in excel.
-	rowcounts = {a:0      for a in index.keys()}	
+	rowcounts = {a: 0     for a in index.keys()}	
 	
 	for r in sorted(saveRows.keys()):
-		if data[ckey['time']][r] in ['', None,]: continue
-		if data[ckey['time']][r] in fillvals: continue	
+		if data[ckey['time']][r] in ['', None,]:
+			print 'No time value:',r, data[ckey['time']][r]
+			continue
+		if data[ckey['time']][r] in fillvals:
+			print 'No time value:',r, data[ckey['time']][r]		
+			continue	
 		for d in saveCols:
 			if d<lastMetaColumn:continue
 			if data[d][r] in ['', None, ]: continue
 			if data[d][r] in fillvals: continue	
 			rowcounts[r] += 1			
 			saveRows[r] = True
-
-	#print 'GreenSeasXLtoNC:\tInfo:\tCount number of data in each row...' # can be slow			
+	print 'GreenSeasXLtoNC:\tInfo:\tMaximum number of rows to save: ',max(rowcounts.values())  # 
+	
 	#rowcounts = {d:0 for d in saveRows.keys()}
 	#for r in sorted(rowcounts.keys()):
 	#	#if saveRows[r] == False: continue
@@ -367,8 +385,15 @@ class GreenSeasXLtoNC:
 	metadata = {}
 	for h in saveCols:
 		if h in dataIsAString:continue
-		colmeta = {metadataTitles[mdk]: self.datasheet.col(h)[mdk] for mdk in metadataTitles.keys() if metadataTitles[mdk] not in ['', None]}
+		datacol = self.datasheet.col(h)[:]
+		colmeta = {metadataTitles[mdk]: datacol[mdk] for mdk in metadataTitles.keys() if metadataTitles[mdk] not in ['', None]}
+		
 		md='  '
+		if len(colmeta.keys())> 20:
+			print 'Too many metadata'
+			print 'GreenSeasXLtoNC:\tWarning:\tMetadata reading failed. Please Consult original excel file for more info.'			
+			metadata[h] = 'Metadata reading failed. Please Consult original excel file for more info.'
+			continue
 		for mdt,mdc in zip(colmeta.keys(),colmeta.values() ):
 			if mdc in ['', None]:continue
 			md +=ucToStr(mdt)+':\t'+ucToStr(mdc)+'\n  '
@@ -421,15 +446,7 @@ class GreenSeasXLtoNC:
 	a = a.replace('oncentration', 'onc')	
 	a = a.replace('Dissolved', 'Diss')
 	a = a.replace('ofwaterbody', '')
-	a = a.replace('+', '')
-	a = a.replace('-', '')						
-	a = a.replace('>', 'GT')		
-	a = a.replace('<', 'LT')
-	a = a.replace('/', '')
-	a = a.replace('\\', '')
-	a = a.replace('[', '_').replace(']', '')
-	a = a.replace('%', 'pcent')	
-	a = a.replace(':','').replace('.','')
+	a = makeStringSafe(a)
 	return a
 	  
 	  
@@ -465,7 +482,7 @@ class GreenSeasXLtoNC:
 	nco.setncattr('Original File',self.fni)	
 	for att in self.attributes.keys():
 		print 'GreenSeasXLtoNC:\tInfo:\tAdding Attribute:', att, self.attributes[att]
-		nco.setncattr(att, self.attributes[att])
+		nco.setncattr(ucToStr(att), ucToStr(self.attributes[att]))
 	
 	nco.createDimension('i', None)
 	
@@ -555,8 +572,17 @@ def ucToStr(d):
 	except:return unicode(d).encode('ascii','ignore')
 
 
-
-
+def makeStringSafe(a):
+	a = a.replace('+', '')
+	a = a.replace('-', '')						
+	a = a.replace('>', 'GT')		
+	a = a.replace('<', 'LT')
+	a = a.replace('/', '')
+	a = a.replace('\\', '')
+	a = a.replace('[', '_').replace(']', '')
+	a = a.replace('%', 'pcent')	
+	a = a.replace(':','').replace('.','')	
+	return a
 
 
 
