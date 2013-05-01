@@ -549,18 +549,7 @@ def folder(name):
 		makedirs(name)
 		print 'makedirs ', name
 	return name
-	
-def lastWord(a, separator='/',debug=False):
-	#returns the final word of a string.
-	while a[-1] == separator: a = a[:-1]
-	ncount, count = 0,1
-	while ncount != count:
-		ncount = count
-		count = a[count:].find('/')+1+count
-		#if ncount == count : break
-	if debug: print 'final word:', a[count:]
-	return a[count:]
-	
+
 def keywithmaxval(d):
 	""" Figure out the key of the maximum value in a dictionairy"""
 	# returns first one
