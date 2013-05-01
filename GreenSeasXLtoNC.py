@@ -540,7 +540,7 @@ class GreenSeasXLtoNC:
 	nco.close()
 
 #--------------------------------------------------
-# folder, lastWord
+# Extra tools.
 #--------------------------------------------------
 def folder(name):
 	if name[-1] != '/':
